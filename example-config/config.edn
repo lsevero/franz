@@ -1,3 +1,6 @@
 {:kafka "localhost:9092"
- :routes [
+ :routes [{:route "/hue"
+           :send-topic "poc"
+           :listen-topic "poc"
+           }
           ]}
