@@ -3,8 +3,7 @@
     [cheshire.core :as json]
     [clojure.core.async
      :as a
-     :refer [>! <! >!! <!! go chan buffer close! thread go-loop
-             alts! alts!! timeout]]
+     :refer [>! go-loop]]
     [clojure.tools.logging :as log] 
     [config.core :refer [env]]
     )
@@ -21,7 +20,8 @@
                      ConsumerConfig/VALUE_DESERIALIZER_CLASS_CONFIG "org.apache.kafka.common.serialization.StringDeserializer"
                      ConsumerConfig/BOOTSTRAP_SERVERS_CONFIG ^String (:kafka env)}))))
 
-(defn consumer! [topic cache]
+(defn consumer!
+  [topic cache & {:keys [duration] :or {duration 100}}]
   (let [consumer (KafkaConsumer. ^Properties @properties-consumer)]
     (.subscribe consumer [topic])
     (go-loop [records []]
@@ -38,5 +38,5 @@
                    (log/debug (str "canal-resposta: " canal-resposta))
                    )
                  (catch Exception e nil)))
-             (recur (seq (.poll consumer (Duration/ofSeconds 1)))))))
+             (recur (seq (.poll consumer (Duration/ofMillis duration)))))))
 

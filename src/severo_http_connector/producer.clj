@@ -4,8 +4,7 @@
     [cheshire.core :as json]
     [clojure.core.async
      :as a
-     :refer [>! <! >!! <!! go chan buffer close! thread go-loop
-             alts! alts!! timeout]]
+     :refer [<! go-loop]]
     [clojure.tools.logging :as log] 
     [config.core :refer [env]]
     )
@@ -21,8 +20,8 @@
                      ProducerConfig/VALUE_SERIALIZER_CLASS_CONFIG "org.apache.kafka.common.serialization.StringSerializer"
                      ProducerConfig/BOOTSTRAP_SERVERS_CONFIG ^String (:kafka env)}))))
 
-(defn producer! [topic canal-producer]
-  (letfn [(create-topic! [topic partitions replication ^Properties cloud-config]
+(defn producer! [^String topic canal-producer]
+  (letfn [(create-topic! [^String topic ^long partitions ^long replication ^Properties cloud-config]
             (let [ac (AdminClient/create cloud-config)]
               (try
                 (.createTopics ac [(NewTopic. topic partitions replication)])
