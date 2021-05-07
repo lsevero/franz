@@ -5,10 +5,30 @@
         :request-header-size 8192
         :port 3000
         }
- :routes [{:route "/hue"
-           :send-topic "poc"
-           :listen-topic "poc"
-           :timeout 2000
-           :poll-duration 100
-           }
-          ]}
+ :swagger {:title "SeveroHTTPConnector"
+           :description "Conectando o http com kafka"}
+ :defaults {:send-topic "poc"
+            :listen-topic "poc"
+            :poll-duration 200
+            :timeout 5000
+            }
+ :routes {"/hue" {:post {:send-topic "poc"
+                         :listen-topic "poc"
+                         :timeout 2000
+                         :poll-duration 100;milliseconds
+                         :summary "teste"
+                         }
+                  :get {:send-topic "poc2"
+                        :listen-topic "poc2"
+                        :timeout 200
+                        :poll-duration 100
+                        :summary "testando get"
+                        }}
+          "/outra-rota" {:post {:send-topic "poc3"
+                                :listen-topic "poc3"
+                                :timeout 2000
+                                :poll-duration 100;milliseconds
+                                :summary "mais teste"
+                                }}
+          }
+ }

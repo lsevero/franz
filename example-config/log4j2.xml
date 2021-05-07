@@ -7,7 +7,10 @@
         </Console>
     </Appenders>
     <Loggers>
-        <Logger name="org.eclipse.jetty.util" level="warn" additivity="false">
+        <Logger name="org.eclipse.jetty" level="warn" additivity="false">
+            <AppenderRef ref="ConsoleAppender"/>
+        </Logger>
+        <Logger name="org.apache.kafka" level="warn" additivity="false">
             <AppenderRef ref="ConsoleAppender"/>
         </Logger>
         <Root level="debug">
