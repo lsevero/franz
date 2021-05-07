@@ -66,7 +66,10 @@
                                                                       {:query map?}
                                                                       {:query map?
                                                                        :body map?}))
-                                                 (assoc :handler (create-generic-handler send-topic listen-topic timeout poll-duration)))])
+                                                 (assoc :handler (create-generic-handler (or send-topic (-> env :defaults :send-topic))
+                                                                                         (or listen-topic (-> env :defaults :listen-topic))
+                                                                                         (or timeout (-> env :defaults :timeout))
+                                                                                         (or poll-duration (-> env :defaults :poll-duration)))))])
                                    method-map))])
               (:routes env))))
 

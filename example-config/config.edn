@@ -1,4 +1,4 @@
-{:kafka "localhost:9092"
+{:kafka {"localhost:9092"}
  :http {:min-threads 16
         :max-threads 100
         :max-idle-time 1800000 
@@ -12,6 +12,12 @@
             :poll-duration 200
             :timeout 5000
             }
+ :uuid #uuid "dsfsadjf"
+ :ttempo #inst
+ 
+ "string" 143324
+ 'aaaa 543256345
+ :conjunto #{1 2 3}
  :routes {"/hue" {:post {:send-topic "poc"
                          :listen-topic "poc"
                          :timeout 2000
