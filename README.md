@@ -1,10 +1,14 @@
 # severo-http-connector
 
-A Clojure library designed to ... well, that part is up to you.
+A easy HTTP<->Kafka connector with a easy config file and swagger generation.
 
 ## Usage
 
-FIXME
+Download the `severo-http-connector-<VERSION>-standalone.jar` from the releases tab and run the jar with the config files with the command:
+
+```bash
+java -Dlog4j.configurationFile=example-config/log4j2.xml -Dconfig=example-config/config.edn -jar target/severo-http-connector-1.0.0-standalone.jar
+```
 
 ## License
 
