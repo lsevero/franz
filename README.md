@@ -1,6 +1,6 @@
 # severo-http-connector
 
-A easy HTTP<->Kafka connector with a easy config file and swagger generation.
+A easy HTTP<->Kafka connector with a complete config file and swagger generation.
 
 ## Usage
 
