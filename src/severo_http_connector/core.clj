@@ -98,23 +98,6 @@
                               [:trace {:optional true} post-route-spec]
                               [:patch {:optional true} post-route-spec]]]]])
 
-(try
-  (when-not (malli/validate config-spec env)
-    (println (apply str (repeat 120 "=")))
-    (println "Config file not valid!!!!")
-    (println)
-    (println (-> config-spec
-                 (malli/explain env)
-                 me/with-spell-checking
-                 me/humanize))
-    (println (apply str (repeat 120 "=")))
-    (throw (ex-info "config file not valid." {:env env})))
-  (catch Exception e
-    (do (println "Error validating the config file")
-        (println e)
-        (System/exit 1))))
-
-
 (defn create-generic-handler
   [send-topic listen-topic timeout-ms poll-duration partitions replication]
   (let [canal-producer (chan)
@@ -231,4 +214,19 @@
                           })))
 
 (defn -main [& args]
+  (try
+    (when-not (malli/validate config-spec env)
+      (println (apply str (repeat 120 "=")))
+      (println "Config file not valid!!!!")
+      (println)
+      (println (-> config-spec
+                   (malli/explain env)
+                   me/with-spell-checking
+                   me/humanize))
+      (println (apply str (repeat 120 "=")))
+      (throw (ex-info "config file not valid." {:env env})))
+    (catch Exception e
+      (do (println "Error validating the config file")
+          (println e)
+          (System/exit 1))))
   (start-web-service)) 
