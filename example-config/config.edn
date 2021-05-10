@@ -25,13 +25,13 @@
             :partitions 1
             :replication 3
             }
- :routes {"/hue" {:post {:send-topic "poc"
+ :routes {"/test" {:post {:send-topic "poc"
                          :listen-topic "poc"
                          :timeout 2000
                          :partitions 1
                          :replication 3
                          :poll-duration 100;milliseconds
-                         :summary "teste"
+                         :summary "test"
                          :parameters {:body [:and
                                              [:map
                                               [:x [:and int? [:> 6]]]
@@ -44,14 +44,14 @@
                         :listen-topic "poc2"
                         :timeout 200
                         :poll-duration 100
-                        :parameters {:query [:map [:numero [:and int? [:> 6]]]]}
-                        :summary "testando get"
+                        :parameters {:query [:map [:number [:and int? [:> 6]]]]}
+                        :summary "testing get"
                         }}
-          "/outra-rota" {:post {:send-topic "poc3"
-                                :listen-topic "poc3"
-                                :timeout 2000
-                                :poll-duration 100;milliseconds
-                                :summary "mais teste"
-                                }}
+          "/other-test" {:post {:send-topic "poc3"
+                                 :listen-topic "poc3"
+                                 :timeout 2000
+                                 :poll-duration 100;milliseconds
+                                 :summary "more test"
+                                 }}
           }
  }

@@ -34,7 +34,7 @@
   (:gen-class))
 
 (def get-route-spec
-  [:map
+  [:map {:closed true}
    [:send-topic {:optional true} string?]
    [:listen-topic {:optional true} string?]
    [:poll-duration {:optional true} pos-int?]
@@ -42,12 +42,11 @@
    [:partitions {:optional true} pos-int?]
    [:replication {:optional true} pos-int?]
    [:summary {:optional true} string?]
-   [:responses {:optional true} [:map-of pos-int? any?]]
    [:parameters {:optional true} [:map {:closed true}
                                   [:query any?]]]])
 
 (def post-route-spec
-  [:map
+  [:map {:closed true}
    [:send-topic {:optional true} string?]
    [:listen-topic {:optional true} string?]
    [:poll-duration {:optional true} pos-int?]
@@ -55,7 +54,6 @@
    [:partitions {:optional true} pos-int?]
    [:replication {:optional true} pos-int?]
    [:summary {:optional true} string?]
-   [:responses {:optional true} [:map-of pos-int? any?]]
    [:parameters {:optional true} [:map {:closed true}
                                   [:query any?]
                                   [:body any?]]]])
