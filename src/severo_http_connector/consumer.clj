@@ -30,8 +30,7 @@
                        canal-resposta (get @cache http-response-id)
                        ]
                    (>! canal-resposta value-record)
-                   (log/debug (format "Consumed record with key %s and value %s\n" key-record value-record))
-                   )
+                   (log/debug (format "Consumed record with key %s and value %s\n" key-record value-record)))
                  (catch Exception e nil)))
              (recur (seq (.poll consumer (Duration/ofMillis duration)))))))
 

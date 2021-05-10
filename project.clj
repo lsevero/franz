@@ -24,13 +24,15 @@
                  [org.apache.logging.log4j/log4j-core "2.13.3"]
                  [org.apache.logging.log4j/log4j-slf4j-impl "2.13.3"]
                  ]
-  :main severo-http-connector.core/-main
+  :main severo-http-connector.core
   :profiles {:dev {:global-vars {*warn-on-reflection* true}
                    :plugins [[cider/cider-nrepl "0.25.4"]]
                    :resource-paths ["resources"
                                     "example-config"
                                     ]
+                   :repl-options {:init-ns severo-http-connector.core} 
                    }
-             :uberjar {:aot :all}
+             :uberjar {:aot :all
+                       }
              } 
-  :repl-options {:init-ns severo-http-connector.core})
+  )

@@ -1,5 +1,4 @@
 (ns severo-http-connector.core
-  (:gen-class)
   (:require
     [cheshire.core :as json]
     [clojure.core.async
@@ -23,13 +22,100 @@
     [reitit.coercion.malli]
     [reitit.ring.malli]
     [malli.util :as mu]
+    [malli.core :as malli]
+    [malli.error :as me]
     [muuntaja.core :as m]
     [ring.adapter.jetty :as jetty]
     [severo-http-connector
      [consumer :refer [consumer!]]
      [producer :refer [producer!]]])
   (:import
-    [java.util UUID]))
+    [java.util UUID])
+  (:gen-class))
+
+(def get-route-spec
+  [:map
+   [:send-topic {:optional true} string?]
+   [:listen-topic {:optional true} string?]
+   [:poll-duration {:optional true} pos-int?]
+   [:timeout {:optional true} pos-int?]
+   [:partitions {:optional true} pos-int?]
+   [:replication {:optional true} pos-int?]
+   [:summary {:optional true} string?]
+   [:responses {:optional true} [:map-of pos-int? any?]]
+   [:parameters {:optional true} [:map {:closed true}
+                                  [:query any?]]]])
+
+(def post-route-spec
+  [:map
+   [:send-topic {:optional true} string?]
+   [:listen-topic {:optional true} string?]
+   [:poll-duration {:optional true} pos-int?]
+   [:timeout {:optional true} pos-int?]
+   [:partitions {:optional true} pos-int?]
+   [:replication {:optional true} pos-int?]
+   [:summary {:optional true} string?]
+   [:responses {:optional true} [:map-of pos-int? any?]]
+   [:parameters {:optional true} [:map {:closed true}
+                                  [:query any?]
+                                  [:body any?]]]])
+
+(def config-spec
+  [:map
+   [:kafka [:map
+            [:consumer [:map-of :string :string]]
+            [:producer [:map-of :string :string]]
+            ]]
+   [:http [:and
+             [:map
+              [:min-threads {:optional true} pos-int?]
+              [:max-threads {:optional true} pos-int?]
+              [:max-idle-time {:optional true} pos-int?]
+              [:request-header-size {:optional true} pos-int?]
+              [:port {:optional true} [:and pos-int? [:< 65535]]]
+              ]
+             [:fn (fn [{:keys [min-threads max-threads]}] (> max-threads min-threads))]
+             ]]
+   [:swagger [:map
+                [:title {:optional true} string?]
+                [:description {:optional true} string?]
+                [:path {:optional true} string?]
+                ]]
+   [:defaults [:map
+                 [:send-topic {:optional true} string?]
+                 [:listen-topic {:optional true} string?]
+                 [:poll-duration {:optional true} pos-int?]
+                 [:timeout {:optional true} pos-int?]
+                 [:partitions {:optional true} pos-int?]
+                 [:replication {:optional true} pos-int?]
+                 ]]
+   [:routes [:map-of :string [:map
+                              [:get {:optional true} get-route-spec]
+                              [:head {:optional true} get-route-spec]
+                              [:post {:optional true} post-route-spec]
+                              [:put {:optional true} post-route-spec]
+                              [:delete {:optional true} post-route-spec]
+                              [:connect {:optional true} post-route-spec]
+                              [:options {:optional true} post-route-spec]
+                              [:trace {:optional true} post-route-spec]
+                              [:patch {:optional true} post-route-spec]]]]])
+
+(try
+  (when-not (malli/validate config-spec env)
+    (println (apply str (repeat 120 "=")))
+    (println "Config file not valid!!!!")
+    (println)
+    (println (-> config-spec
+                 (malli/explain env)
+                 me/with-spell-checking
+                 me/humanize))
+    (println (apply str (repeat 120 "=")))
+    (throw (ex-info "config file not valid." {:env env})))
+  (catch Exception e
+    (do (println "Error validating the config file")
+        (println e)
+        (System/exit 1))))
+
 
 (defn create-generic-handler
   [send-topic listen-topic timeout-ms poll-duration partitions replication]
@@ -49,7 +135,7 @@
               _ (swap! cache dissoc uuid)]
           (if value 
             (let [{:keys [http-status] :or {http-status 200}} value]
-              (log/debug "consumed payload: " value)
+              (log/trace "consumed payload: " value)
               {:status http-status
                :headers {"Content-Type" "application/json"}
                :body (json/generate-string (apply dissoc value [:http-status :http-response-id]))})
@@ -91,8 +177,8 @@
               (http/router
                 [["/swagger.json"
                   {:get {:no-doc true
-                         :swagger {:info {:title (-> env :swagger :title)
-                                          :description (-> env :swagger :description)}}
+                         :swagger {:info {:title (or (-> env :swagger :title) "SeveroHTTPConnector")
+                                          :description (or (-> env :swagger :description) "Connecting http to kafka")}}
                          :handler (swagger/create-swagger-handler)}}]
                  (prepare-reitit-handlers)
                  ]
