@@ -16,11 +16,9 @@
 
 (def properties-producer
   (delay (doto (Properties.)
-           (.putAll {ProducerConfig/KEY_SERIALIZER_CLASS_CONFIG "org.apache.kafka.common.serialization.StringSerializer"
-                     ProducerConfig/VALUE_SERIALIZER_CLASS_CONFIG "org.apache.kafka.common.serialization.StringSerializer"
-                     ProducerConfig/BOOTSTRAP_SERVERS_CONFIG ^String (:kafka env)}))))
+           (.putAll (-> env :kafka :producer)))))
 
-(defn producer! [^String topic canal-producer]
+(defn producer! [^String topic ^long partitions ^long replication canal-producer]
   (letfn [(create-topic! [^String topic ^long partitions ^long replication ^Properties cloud-config]
             (let [ac (AdminClient/create cloud-config)]
               (try
@@ -31,7 +29,7 @@
                   (.close ac)))))
           (print-ex [e] (log/error e "Failed to deliver message."))
           (print-metadata [^RecordMetadata x]
-            (log/info (format "Produced record to topic %s partition [%d] @ offest %d\n"
+            (log/debug (format "Produced record to topic %s partition [%d] @ offest %d\n"
                               (.topic x)
                               (.partition x)
                               (.offset x))))]
@@ -41,10 +39,10 @@
                        (if exception
                          (print-ex exception)
                          (print-metadata metadata))))]
-      (create-topic! topic 1 3 @properties-producer)
+      (create-topic! topic partitions replication @properties-producer)
       (go-loop []
                (let [record (ProducerRecord. topic (<! canal-producer))]
-                 (log/debug "canal-producer recebeu " record)
+                 (log/trace "canal-producer received: " record)
                  (doto producer 
                    (.send record callback)
                    (.flush)))

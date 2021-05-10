@@ -17,6 +17,7 @@
                   :exclusions [[com.fasterxml.jackson.core/jackson-core]
                                [com.fasterxml.jackson.core/jackson-databind]
                                ]]
+                 [borkdude/sci "0.2.5"]
                  [org.clojure/core.async "1.3.618"]
                  [org.clojure/tools.logging "1.1.0"]
                  [org.apache.logging.log4j/log4j-api "2.13.3"]

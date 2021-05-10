@@ -1,4 +1,14 @@
-{:kafka {"localhost:9092"}
+{:kafka {:consumer {"bootstrap.servers" "localhost:9092" 
+                    "group.id" "test"
+                    "auto.offset.reset" "latest"
+                    "enable.auto.commit" "true"
+                    "key.deserializer" "org.apache.kafka.common.serialization.StringDeserializer"
+                    "value.deserializer" "org.apache.kafka.common.serialization.StringDeserializer"
+                    }
+         :producer {"bootstrap.servers" "localhost:9092"
+                    "key.serializer" "org.apache.kafka.common.serialization.StringSerializer"
+                    "value.serializer" "org.apache.kafka.common.serialization.StringSerializer"
+                    }}
  :http {:min-threads 16
         :max-threads 100
         :max-idle-time 1800000 
@@ -6,28 +16,35 @@
         :port 3000
         }
  :swagger {:title "SeveroHTTPConnector"
-           :description "Conectando o http com kafka"}
+           :description "Connecting http to kafka"
+           :path "/"}
  :defaults {:send-topic "poc"
             :listen-topic "poc"
             :poll-duration 200
             :timeout 5000
+            :partitions 1
+            :replication 3
             }
- :uuid #uuid "dsfsadjf"
- :ttempo #inst
- 
- "string" 143324
- 'aaaa 543256345
- :conjunto #{1 2 3}
  :routes {"/hue" {:post {:send-topic "poc"
                          :listen-topic "poc"
                          :timeout 2000
+                         :partitions 1
+                         :replication 3
                          :poll-duration 100;milliseconds
                          :summary "teste"
+                         :parameters {:body [:and
+                                             [:map
+                                              [:x [:and int? [:> 6]]]
+                                              [:y number?]]
+                                             [:fn (fn [{:keys [x y]}] (> x y))]]
+                                      :query [:map
+                                              [:id string?]]}
                          }
                   :get {:send-topic "poc2"
                         :listen-topic "poc2"
                         :timeout 200
                         :poll-duration 100
+                        :parameters {:query [:map [:numero [:and int? [:> 6]]]]}
                         :summary "testando get"
                         }}
           "/outra-rota" {:post {:send-topic "poc3"

@@ -15,10 +15,7 @@
 
 (def properties-consumer
   (delay (doto (Properties.)
-           (.putAll {ConsumerConfig/GROUP_ID_CONFIG, "clojure_example_group"
-                     ConsumerConfig/KEY_DESERIALIZER_CLASS_CONFIG "org.apache.kafka.common.serialization.StringDeserializer"
-                     ConsumerConfig/VALUE_DESERIALIZER_CLASS_CONFIG "org.apache.kafka.common.serialization.StringDeserializer"
-                     ConsumerConfig/BOOTSTRAP_SERVERS_CONFIG ^String (:kafka env)}))))
+           (.putAll (-> env :kafka :consumer)))))
 
 (defn consumer!
   [topic cache & {:keys [duration] :or {duration 100}}]
@@ -33,9 +30,7 @@
                        canal-resposta (get @cache http-response-id)
                        ]
                    (>! canal-resposta value-record)
-                   (log/info "Consumed record with key %s and value %s\n" key-record value-record)
-                   (log/trace (str "cache dentro do consumer: " cache))
-                   (log/trace (str "canal-resposta: " canal-resposta))
+                   (log/debug (format "Consumed record with key %s and value %s\n" key-record value-record))
                    )
                  (catch Exception e nil)))
              (recur (seq (.poll consumer (Duration/ofMillis duration)))))))

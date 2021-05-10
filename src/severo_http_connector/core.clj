@@ -20,6 +20,9 @@
     [reitit.http.interceptors.muuntaja :as muuntaja]
     [reitit.http.interceptors.exception :as exception]
     [reitit.http.interceptors.multipart :as multipart]
+    [reitit.coercion.malli]
+    [reitit.ring.malli]
+    [malli.util :as mu]
     [muuntaja.core :as m]
     [ring.adapter.jetty :as jetty]
     [severo-http-connector
@@ -29,23 +32,24 @@
     [java.util UUID]))
 
 (defn create-generic-handler
-  [send-topic listen-topic timeout-ms poll-duration]
+  [send-topic listen-topic timeout-ms poll-duration partitions replication]
   (let [canal-producer (chan)
         cache (atom {})]
     (consumer! send-topic cache :duration poll-duration)
-    (producer! listen-topic canal-producer)
+    (producer! listen-topic partitions replication canal-producer)
     (fn [{:keys [parameters] :as req}]
-      (log/debug "REQUEST: " req)
+      (log/trace "http-request: " req)
       (let [uuid (str (UUID/randomUUID))
             payload (assoc parameters :http-response-id uuid)
             canal-resposta (chan)]
         (swap! cache assoc uuid canal-resposta)
         (log/trace "cache: " @cache)
         (>!! canal-producer (json/generate-string payload))
-        (let [[value channel] (alts!! [canal-resposta (timeout timeout-ms)])]
+        (let [[value channel] (alts!! [canal-resposta (timeout timeout-ms)])
+              _ (swap! cache dissoc uuid)]
           (if value 
-            (let [{:keys [http-status]} value]
-              (log/info "RECEBEMOS O PAYLOAD " value)
+            (let [{:keys [http-status] :or {http-status 200}} value]
+              (log/debug "consumed payload: " value)
               {:status http-status
                :headers {"Content-Type" "application/json"}
                :body (json/generate-string (apply dissoc value [:http-status :http-response-id]))})
@@ -59,17 +63,25 @@
          {:swagger {:tags ["api"]}}]
         (mapv (fn [[route method-map]]
                 [route (into {}
-                             (mapv (fn [[method {:keys [send-topic listen-topic timeout poll-duration] :as conf}]]
-                                     [method (-> conf
+                             (mapv (fn [[method {:keys [send-topic listen-topic timeout poll-duration
+                                                        partitions replication
+                                                        parameters] :as conf}]]
+                                     (let [conf-aux (-> conf
                                                  (dissoc :send-topic :listen-topic :timeout :poll-duration)
-                                                 (assoc :parameters (if (#{:get :head} method)
-                                                                      {:query map?}
-                                                                      {:query map?
-                                                                       :body map?}))
                                                  (assoc :handler (create-generic-handler (or send-topic (-> env :defaults :send-topic))
                                                                                          (or listen-topic (-> env :defaults :listen-topic))
                                                                                          (or timeout (-> env :defaults :timeout))
-                                                                                         (or poll-duration (-> env :defaults :poll-duration)))))])
+                                                                                         (or poll-duration (-> env :defaults :poll-duration))
+                                                                                         (or partitions (-> env :defaults :partitions))
+                                                                                         (or replication (-> env :defaults :replication)))))
+                                           conf-final (if parameters
+                                                        conf-aux
+                                                        (assoc conf-aux :parameters (if (#{:get :head} method)
+                                                                                      {:query map?}
+                                                                                      {:query map?
+                                                                                       :body map?})))]
+                                                 
+                                       [method conf-final]))
                                    method-map))])
               (:routes env))))
 
@@ -89,7 +101,17 @@
                  ;;:validate spec/validate ;; enable spec validation for route data
                  ;;:reitit.spec/wrap spell/closed ;; strict top-level validation
                  :exception pretty/exception
-                 :data {:coercion reitit.coercion.spec/coercion
+                 :data {:coercion (reitit.coercion.malli/create
+                                    {;; set of keys to include in error messages
+                                     :error-keys #{#_:type :coercion :in :schema :value :errors :humanized #_:transformed}
+                                     ;; schema identity function (default: close all map schemas)
+                                     :compile mu/closed-schema
+                                     ;; strip-extra-keys (effects only predefined transformers)
+                                     :strip-extra-keys true
+                                     ;; add/set default values
+                                     :default-values true
+                                     ;; malli options
+                                     :options nil})
                         :muuntaja m/instance
                         :interceptors [;; swagger feature
                                        swagger/swagger-feature
@@ -111,61 +133,18 @@
                                        (multipart/multipart-interceptor)]}})
               (ring/routes
                 (swagger-ui/create-swagger-ui-handler
-                  {:path "/"
+                  {:path (or (-> env :swagger :path) "/")
                    :config {:validatorUrl nil
                             :operationsSorter "alpha"}})
                 (ring/create-default-handler))
               {:executor sieppari/executor})]
     (jetty/run-jetty app {:port (or (-> env :http :port) 3000)
                           :join? true
-                          :min-threads (or (-> env :http :min-threads) 16)
-                          :max-threads (or (-> env :http :max-threads) 100)
-                          :max-idle-time (or (-> env :http :max-idle-time) (* 60 1000 30))
+                          :min-threads (or (-> env :http :min-threads) 8)
+                          :max-threads (or (-> env :http :max-threads) 20)
+                          :max-idle-time (or (-> env :http :max-idle-time) (* 60 1000 10))
                           :request-header-size (or (-> env :http :request-header-size) 8192)
                           })))
 
-
-
-
-
-(comment 
-  {:send-topic "poc"
-   :listen-topic "poc"
-   :timeout 2000
-   :poll-duration 100;milliseconds
-   } 
-  (:routes env)
-  (flatten 
-    (into []
-          (mapv (fn [route method-map]
-                  (mapv (fn [method {:keys [send-topic listen-topic timeout poll-duration] :as conf}]
-                          (let [reitit-map (-> conf
-                                               (dissoc :send-topic :listen-topc :timeout :poll-duration)
-                                               (assoc :handler (create-generic-handler send-topic listen-topic timeout-ms poll-duration)))]
-                            retit-map))
-                        method-map))
-                (:routes env))))
-  )
-
-(def canal-producer (chan))
-(def cache (atom {}))
-
 (defn -main [& args]
-  ;(log/info "criando consumidor")
-  ;(consumer! "poc" cache)
-  ;(log/info "criando produtor")
-  ;(producer! "poc" canal-producer)
-
-  ;handler http
-  ;(let [uuid (str (UUID/randomUUID))
-        ;payload {:http-response-id uuid :payload "lol"}
-        ;canal-resposta (chan)]
-    ;(swap! cache assoc uuid canal-resposta)
-    ;(log/trace "cache: " @cache)
-    ;(>!! canal-producer (json/generate-string payload))
-    ;(let [[value channel] (alts!! [canal-resposta (timeout 2000)])]
-      ;(if value 
-        ;(log/info "RECEBEMOS O PAYLOAD " value)
-        ;(log/info "Falha."))))
-  (start-web-service)
-  ) 
+  (start-web-service)) 
