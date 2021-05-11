@@ -2,6 +2,8 @@
 
 A easy HTTP<->Kafka connector with a complete config file and swagger generation.
 
+![http kafka converter](https://raw.githubusercontent.com/lsevero/severo-http-connector/master/http-kafka.jpeg)
+
 ## Usage
 
 Download the `severo-http-connector-<VERSION>-standalone.jar` from the releases tab and run the jar with the config files with the command:
