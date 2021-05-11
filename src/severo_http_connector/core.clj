@@ -60,50 +60,53 @@
 
 (def config-spec
   [:map
-   [:kafka [:map
+   [:kafka [:map {:closed true}
             [:consumer [:map-of :string :string]]
             [:producer [:map-of :string :string]]
             ]]
    [:http [:and
-             [:map
-              [:min-threads {:optional true} pos-int?]
-              [:max-threads {:optional true} pos-int?]
-              [:max-idle-time {:optional true} pos-int?]
-              [:request-header-size {:optional true} pos-int?]
-              [:port {:optional true} [:and pos-int? [:< 65535]]]
-              ]
-             [:fn (fn [{:keys [min-threads max-threads]}] (> max-threads min-threads))]
-             ]]
-   [:swagger [:map
-                [:title {:optional true} string?]
-                [:description {:optional true} string?]
-                [:path {:optional true} string?]
-                ]]
-   [:defaults [:map
-                 [:send-topic {:optional true} string?]
-                 [:listen-topic {:optional true} string?]
-                 [:poll-duration {:optional true} pos-int?]
-                 [:timeout {:optional true} pos-int?]
-                 [:partitions {:optional true} pos-int?]
-                 [:replication {:optional true} pos-int?]
-                 ]]
-   [:routes [:map-of :string [:map
-                              [:get {:optional true} get-route-spec]
-                              [:head {:optional true} get-route-spec]
-                              [:post {:optional true} post-route-spec]
-                              [:put {:optional true} post-route-spec]
-                              [:delete {:optional true} post-route-spec]
-                              [:connect {:optional true} post-route-spec]
-                              [:options {:optional true} post-route-spec]
-                              [:trace {:optional true} post-route-spec]
-                              [:patch {:optional true} post-route-spec]]]]])
+           [:map
+            [:min-threads {:optional true} pos-int?]
+            [:max-threads {:optional true} pos-int?]
+            [:max-idle-time {:optional true} pos-int?]
+            [:request-header-size {:optional true} pos-int?]
+            [:port {:optional true} [:and pos-int? [:< 65535]]]
+            ]
+           [:fn {:error/message "max-threads need to be greater than min-threands"} (fn [{:keys [min-threads max-threads]}] (> max-threads min-threads))]
+           ]]
+   [:swagger [:map {:closed true}
+              [:title {:optional true} string?]
+              [:description {:optional true} string?]
+              [:path {:optional true} string?]
+              ]]
+   [:defaults [:map {:closed true}
+               [:send-topic {:optional true} string?]
+               [:listen-topic {:optional true} string?]
+               [:poll-duration {:optional true} pos-int?]
+               [:timeout {:optional true} pos-int?]
+               [:partitions {:optional true} pos-int?]
+               [:replication {:optional true} pos-int?]
+               ]]
+   [:routes 
+    [:map-of :string [:and
+                      [:map {:closed true}
+                       [:get {:optional true} get-route-spec]
+                       [:head {:optional true} get-route-spec]
+                       [:post {:optional true} post-route-spec]
+                       [:put {:optional true} post-route-spec]
+                       [:delete {:optional true} post-route-spec]
+                       [:connect {:optional true} post-route-spec]
+                       [:options {:optional true} post-route-spec]
+                       [:trace {:optional true} post-route-spec]
+                       [:patch {:optional true} post-route-spec]]
+                      [:fn {:error/message "method map cannot be empty"} (fn [m] (not (empty? m)))]]]]])
 
 (defn create-generic-handler
   [send-topic listen-topic timeout-ms poll-duration partitions replication]
   (let [canal-producer (chan)
         cache (atom {})]
-    (consumer! send-topic cache :duration poll-duration)
-    (producer! listen-topic partitions replication canal-producer)
+    (consumer! listen-topic cache :duration poll-duration)
+    (producer! send-topic partitions replication canal-producer)
     (fn [{:keys [parameters] :as req}]
       (log/trace "http-request: " req)
       (let [uuid (str (UUID/randomUUID))
@@ -120,7 +123,7 @@
               {:status http-status
                :headers {"Content-Type" "application/json"}
                :body (json/generate-string (apply dissoc value [:http-status :http-response-id]))})
-            {:status 500
+            {:status 504
              :headers {"Content-Type" "application/json"}
              :body (json/generate-string {:message "Timeout."})}))))))
 
@@ -135,12 +138,24 @@
                                                         parameters] :as conf}]]
                                      (let [conf-aux (-> conf
                                                  (dissoc :send-topic :listen-topic :timeout :poll-duration)
-                                                 (assoc :handler (create-generic-handler (or send-topic (-> env :defaults :send-topic))
-                                                                                         (or listen-topic (-> env :defaults :listen-topic))
-                                                                                         (or timeout (-> env :defaults :timeout))
-                                                                                         (or poll-duration (-> env :defaults :poll-duration))
-                                                                                         (or partitions (-> env :defaults :partitions))
-                                                                                         (or replication (-> env :defaults :replication)))))
+                                                 (assoc :handler (create-generic-handler (or send-topic
+                                                                                             (-> env :defaults :send-topic)
+                                                                                             (throw (ex-info "send-topic cannot be null" {})))
+                                                                                         (or listen-topic
+                                                                                             (-> env :defaults :listen-topic)
+                                                                                             (throw (ex-info "listen-topic cannot be null" {})))
+                                                                                         (or timeout
+                                                                                             (-> env :defaults :timeout)
+                                                                                             (throw (ex-info "timeout cannot be null" {})))
+                                                                                         (or poll-duration
+                                                                                             (-> env :defaults :poll-duration)
+                                                                                             (throw (ex-info "poll-duration cannot be null" {})))
+                                                                                         (or partitions
+                                                                                             (-> env :defaults :partitions)
+                                                                                             (throw (ex-info "partitions cannot be null" {})))
+                                                                                         (or replication 
+                                                                                             (-> env :defaults :replication)
+                                                                                             (throw (ex-info "replication" {}))))))
                                            conf-final (if parameters
                                                         conf-aux
                                                         (assoc conf-aux :parameters (if (#{:get :head} method)
@@ -224,9 +239,14 @@
                    me/with-spell-checking
                    me/humanize))
       (println (apply str (repeat 120 "=")))
-      (throw (ex-info "config file not valid." {:env env})))
+      (System/exit 1))
     (catch Exception e
       (do (println "Error validating the config file")
           (println e)
           (System/exit 1))))
-  (start-web-service)) 
+  (try
+    (start-web-service)
+    (catch Exception e
+      (do (println "Error during the http server init.")
+          (println e)
+          (System/exit 1))))) 

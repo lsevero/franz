@@ -18,8 +18,8 @@
  :swagger {:title "SeveroHTTPConnector"
            :description "Connecting http to kafka"
            :path "/"}
- :defaults {:send-topic "poc"
-            :listen-topic "poc"
+ :defaults {:send-topic "default"
+            :listen-topic "default"
             :poll-duration 200
             :timeout 5000
             :partitions 1
@@ -48,10 +48,10 @@
                         :summary "testing get"
                         }}
           "/other-test" {:post {:send-topic "poc3"
-                                 :listen-topic "poc3"
-                                 :timeout 2000
-                                 :poll-duration 100;milliseconds
-                                 :summary "more test"
-                                 }}
+                                :listen-topic "poc3"
+                                :timeout 2000
+                                :poll-duration 100;milliseconds
+                                :summary "more test"
+                                }}
           }
  }
