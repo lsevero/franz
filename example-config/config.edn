@@ -15,7 +15,8 @@
         :request-header-size 8192
         :port 3000
         }
- :swagger {:title "SeveroHTTPConnector"
+ :swagger {:enabled? true
+           :title "SeveroHTTPConnector"
            :description "Connecting http to kafka"
            :path "/"}
  :defaults {:send-topic "default"

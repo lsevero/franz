@@ -79,6 +79,7 @@
            [:fn {:error/message "max-threads need to be greater than min-threads"} (fn [{:keys [min-threads max-threads]}] (> max-threads min-threads))]
            ]]
    [:swagger [:map {:closed true}
+              [:enabled? {:optional true} boolean?]
               [:title {:optional true} string?]
               [:description {:optional true} string?]
               [:path {:optional true} string?]
@@ -92,18 +93,19 @@
                [:replication {:optional true} pos-int?]
                ]]
    [:routes 
-    [:map-of :string [:and
-                      [:map {:closed true}
-                       [:get {:optional true} get-route-spec]
-                       [:head {:optional true} get-route-spec]
-                       [:post {:optional true} post-route-spec]
-                       [:put {:optional true} post-route-spec]
-                       [:delete {:optional true} post-route-spec]
-                       [:connect {:optional true} post-route-spec]
-                       [:options {:optional true} post-route-spec]
-                       [:trace {:optional true} post-route-spec]
-                       [:patch {:optional true} post-route-spec]]
-                      [:fn {:error/message "method map cannot be empty"} (fn [m] (not (empty? m)))]]]]])
+    [:and [:map-of :string [:and
+                            [:map {:closed true}
+                             [:get {:optional true} get-route-spec]
+                             [:head {:optional true} get-route-spec]
+                             [:post {:optional true} post-route-spec]
+                             [:put {:optional true} post-route-spec]
+                             [:delete {:optional true} post-route-spec]
+                             [:connect {:optional true} post-route-spec]
+                             [:options {:optional true} post-route-spec]
+                             [:trace {:optional true} post-route-spec]
+                             [:patch {:optional true} post-route-spec]]
+                            [:fn {:error/message "method map cannot be empty"} (fn [m] (not (empty? m)))]]]
+     [:fn {:error/message "route map cannot be empty"} (fn [m] (not (empty? m)))]]]])
 
 (defn create-generic-handler
   [send-topic listen-topic timeout-ms poll-duration partitions replication consumer-cfg producer-cfg]
@@ -173,7 +175,7 @@
                                    method-map))])
               (:routes env))))
 
-(defn start-web-service 
+(defn swagger-http-server 
   []
   (let [app (http/ring-handler
               (http/router
@@ -234,6 +236,55 @@
                           :request-header-size (or (-> env :http :request-header-size) 8192)
                           })))
 
+(defn http-server 
+  []
+  (let [app (http/ring-handler
+              (http/router
+                [(prepare-reitit-handlers)]
+
+                {;:reitit.interceptor/transform dev/print-context-diffs ;; pretty context diffs
+                 ;;:validate spec/validate ;; enable spec validation for route data
+                 ;;:reitit.spec/wrap spell/closed ;; strict top-level validation
+                 :exception pretty/exception
+                 :data {:coercion (reitit.coercion.malli/create
+                                    {;; set of keys to include in error messages
+                                     :error-keys #{#_:type :coercion :in :schema :value :errors :humanized #_:transformed}
+                                     ;; schema identity function (default: close all map schemas)
+                                     :compile mu/closed-schema
+                                     ;; strip-extra-keys (effects only predefined transformers)
+                                     :strip-extra-keys true
+                                     ;; add/set default values
+                                     :default-values true
+                                     ;; malli options
+                                     :options nil})
+                        :muuntaja m/instance
+                        :interceptors [;; swagger feature
+                                       swagger/swagger-feature
+                                       ;; query-params & form-params
+                                       (parameters/parameters-interceptor)
+                                       ;; content-negotiation
+                                       (muuntaja/format-negotiate-interceptor)
+                                       ;; encoding response body
+                                       (muuntaja/format-response-interceptor)
+                                       ;; exception handling
+                                       (exception/exception-interceptor)
+                                       ;; decoding request body
+                                       (muuntaja/format-request-interceptor)
+                                       ;; coercing response bodys
+                                       (coercion/coerce-response-interceptor)
+                                       ;; coercing request parameters
+                                       (coercion/coerce-request-interceptor)
+                                       ;; multipart
+                                       (multipart/multipart-interceptor)]}})
+              {:executor sieppari/executor})]
+    (jetty/run-jetty app {:port (or (-> env :http :port) 3000)
+                          :join? true
+                          :min-threads (or (-> env :http :min-threads) 8)
+                          :max-threads (or (-> env :http :max-threads) 20)
+                          :max-idle-time (or (-> env :http :max-idle-time) (* 60 1000 10))
+                          :request-header-size (or (-> env :http :request-header-size) 8192)
+                          })))
+
 (defn -main [& args]
   (try
     (log/info "Reading the config file...")
@@ -253,7 +304,9 @@
   (try
     (log/info "Config file is valid")
     (log/info "Initing web server")
-    (start-web-service)
+    (if (false? (-> env :swagger :enabled?))
+      (http-server)
+      (swagger-http-server))
     (catch Exception e
       (do (log/error e "Error during the http server init.")
           (System/exit 1))))) 
