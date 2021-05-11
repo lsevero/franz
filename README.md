@@ -89,6 +89,11 @@ Explained config.edn:
                                  :timeout 2000
                                  :poll-duration 100;milliseconds
                                  :summary "more test"
+                                 ;We can define kafka configs per route as well
+                                 ;these maps will be merged against the kafka configs above, per-route configs prevail
+                                 :consumer {"group.id" "other-test"
+                                           }
+                                 :producer {}
                                  }}
           }
  }
@@ -101,6 +106,13 @@ This project is using Log4j2 to log, and accepts a log4j2 compatible config file
 Besides the logs inside SeveroHTTPConnector you can extract the logs inside the kafka and http library, although they are very verbose.
 Check the `example-config/log4j2.xml` file for a example.
 The logging config is optional, although is recommended to use.
+
+## Building
+
+You'll need [leiningen](https://leiningen.org/) installed, then:
+```bash
+lein uberjar
+```
 
 ## License
 

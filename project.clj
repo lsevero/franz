@@ -1,4 +1,4 @@
-(defproject severo-http-connector "1.0.1"
+(defproject severo-http-connector "1.1.0"
   :description "A http to kafka translator"
   :url "https://github.com/lsevero/severo-http-connector"
   :license {:name "EPL-2.0 OR GPL-2.0-or-later WITH Classpath-exception-2.0"

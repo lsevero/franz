@@ -52,6 +52,9 @@
                                 :timeout 2000
                                 :poll-duration 100;milliseconds
                                 :summary "more test"
+                                :consumer {"group.id" "other-test"
+                                           }
+                                :producer {}
                                 }}
           }
  }

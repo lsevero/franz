@@ -14,11 +14,12 @@
     [org.apache.kafka.clients.producer Callback KafkaProducer ProducerConfig ProducerRecord RecordMetadata]
     [org.apache.kafka.common.errors TopicExistsException]))
 
-(def properties-producer
-  (delay (doto (Properties.)
-           (.putAll (-> env :kafka :producer)))))
+(defn properties-producer ^Properties
+  [cfg]
+  (doto (Properties.)
+    (.putAll (merge (-> env :kafka :producer) (or cfg {})))))
 
-(defn producer! [^String topic ^long partitions ^long replication canal-producer]
+(defn producer! [topic partitions replication producer-cfg canal-producer]
   (letfn [(create-topic! [^String topic ^long partitions ^long replication ^Properties cloud-config]
             (let [ac (AdminClient/create cloud-config)]
               (try
@@ -33,13 +34,13 @@
                               (.topic x)
                               (.partition x)
                               (.offset x))))]
-    (let [producer (KafkaProducer. ^Properties @properties-producer)
+    (let [producer (KafkaProducer. ^Properties (properties-producer producer-cfg))
           callback (reify Callback
                      (onCompletion [this metadata exception]
                        (if exception
                          (print-ex exception)
                          (print-metadata metadata))))]
-      (create-topic! topic partitions replication @properties-producer)
+      (create-topic! topic partitions replication (properties-producer producer-cfg))
       (go-loop []
                (let [record (ProducerRecord. topic (<! canal-producer))]
                  (log/trace "canal-producer received: " record)

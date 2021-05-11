@@ -13,13 +13,14 @@
     [org.apache.kafka.clients.consumer ConsumerConfig KafkaConsumer ConsumerRecord]
     ))
 
-(def properties-consumer
-  (delay (doto (Properties.)
-           (.putAll (-> env :kafka :consumer)))))
+(defn properties-consumer ^Properties
+  [cfg]
+  (doto (Properties.)
+    (.putAll (merge (-> env :kafka :consumer) (or cfg {})))))
 
 (defn consumer!
-  [topic cache & {:keys [duration] :or {duration 100}}]
-  (let [consumer (KafkaConsumer. ^Properties @properties-consumer)]
+  [topic consumer-cfg cache & {:keys [duration] :or {duration 100}}]
+  (let [consumer (KafkaConsumer. ^Properties (properties-consumer consumer-cfg))]
     (.subscribe consumer [topic])
     (go-loop [records []]
              (log/trace (str "records:" records))

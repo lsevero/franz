@@ -42,6 +42,8 @@
    [:partitions {:optional true} pos-int?]
    [:replication {:optional true} pos-int?]
    [:summary {:optional true} string?]
+   [:consumer {:optional true} [:map-of :string :string]]
+   [:producer {:optional true} [:map-of :string :string]]
    [:parameters {:optional true} [:map {:closed true}
                                   [:query any?]]]])
 
@@ -54,6 +56,8 @@
    [:partitions {:optional true} pos-int?]
    [:replication {:optional true} pos-int?]
    [:summary {:optional true} string?]
+   [:consumer {:optional true} [:map-of :string :string]]
+   [:producer {:optional true} [:map-of :string :string]]
    [:parameters {:optional true} [:map {:closed true}
                                   [:query any?]
                                   [:body any?]]]])
@@ -72,7 +76,7 @@
             [:request-header-size {:optional true} pos-int?]
             [:port {:optional true} [:and pos-int? [:< 65535]]]
             ]
-           [:fn {:error/message "max-threads need to be greater than min-threands"} (fn [{:keys [min-threads max-threads]}] (> max-threads min-threads))]
+           [:fn {:error/message "max-threads need to be greater than min-threads"} (fn [{:keys [min-threads max-threads]}] (> max-threads min-threads))]
            ]]
    [:swagger [:map {:closed true}
               [:title {:optional true} string?]
@@ -102,11 +106,11 @@
                       [:fn {:error/message "method map cannot be empty"} (fn [m] (not (empty? m)))]]]]])
 
 (defn create-generic-handler
-  [send-topic listen-topic timeout-ms poll-duration partitions replication]
+  [send-topic listen-topic timeout-ms poll-duration partitions replication consumer-cfg producer-cfg]
   (let [canal-producer (chan)
         cache (atom {})]
-    (consumer! listen-topic cache :duration poll-duration)
-    (producer! send-topic partitions replication canal-producer)
+    (consumer! listen-topic consumer-cfg cache :duration poll-duration)
+    (producer! send-topic partitions replication producer-cfg canal-producer)
     (fn [{:keys [parameters] :as req}]
       (log/trace "http-request: " req)
       (let [uuid (str (UUID/randomUUID))
@@ -134,35 +138,37 @@
         (mapv (fn [[route method-map]]
                 [route (into {}
                              (mapv (fn [[method {:keys [send-topic listen-topic timeout poll-duration
-                                                        partitions replication
+                                                        partitions replication consumer producer
                                                         parameters] :as conf}]]
                                      (let [conf-aux (-> conf
-                                                 (dissoc :send-topic :listen-topic :timeout :poll-duration)
-                                                 (assoc :handler (create-generic-handler (or send-topic
-                                                                                             (-> env :defaults :send-topic)
-                                                                                             (throw (ex-info "send-topic cannot be null" {})))
-                                                                                         (or listen-topic
-                                                                                             (-> env :defaults :listen-topic)
-                                                                                             (throw (ex-info "listen-topic cannot be null" {})))
-                                                                                         (or timeout
-                                                                                             (-> env :defaults :timeout)
-                                                                                             (throw (ex-info "timeout cannot be null" {})))
-                                                                                         (or poll-duration
-                                                                                             (-> env :defaults :poll-duration)
-                                                                                             (throw (ex-info "poll-duration cannot be null" {})))
-                                                                                         (or partitions
-                                                                                             (-> env :defaults :partitions)
-                                                                                             (throw (ex-info "partitions cannot be null" {})))
-                                                                                         (or replication 
-                                                                                             (-> env :defaults :replication)
-                                                                                             (throw (ex-info "replication" {}))))))
+                                                        (dissoc :send-topic :listen-topic :timeout :poll-duration :partitions :replication :consumer :producer)
+                                                        (assoc :handler (create-generic-handler (or send-topic
+                                                                                                    (-> env :defaults :send-topic)
+                                                                                                    (throw (ex-info "send-topic cannot be null" {})))
+                                                                                                (or listen-topic
+                                                                                                    (-> env :defaults :listen-topic)
+                                                                                                    (throw (ex-info "listen-topic cannot be null" {})))
+                                                                                                (or timeout
+                                                                                                    (-> env :defaults :timeout)
+                                                                                                    (throw (ex-info "timeout cannot be null" {})))
+                                                                                                (or poll-duration
+                                                                                                    (-> env :defaults :poll-duration)
+                                                                                                    (throw (ex-info "poll-duration cannot be null" {})))
+                                                                                                (or partitions
+                                                                                                    (-> env :defaults :partitions)
+                                                                                                    (throw (ex-info "partitions cannot be null" {})))
+                                                                                                (or replication 
+                                                                                                    (-> env :defaults :replication)
+                                                                                                    (throw (ex-info "replication" {})))
+                                                                                                (or consumer {})
+                                                                                                (or producer {}))))
                                            conf-final (if parameters
                                                         conf-aux
                                                         (assoc conf-aux :parameters (if (#{:get :head} method)
                                                                                       {:query map?}
                                                                                       {:query map?
                                                                                        :body map?})))]
-                                                 
+
                                        [method conf-final]))
                                    method-map))])
               (:routes env))))
@@ -230,6 +236,7 @@
 
 (defn -main [& args]
   (try
+    (log/info "Reading the config file...")
     (when-not (malli/validate config-spec env)
       (println (apply str (repeat 120 "=")))
       (println "Config file not valid!!!!")
@@ -241,12 +248,12 @@
       (println (apply str (repeat 120 "=")))
       (System/exit 1))
     (catch Exception e
-      (do (println "Error validating the config file")
-          (println e)
+      (do (log/error e "Error validating the config file")
           (System/exit 1))))
   (try
+    (log/info "Config file is valid")
+    (log/info "Initing web server")
     (start-web-service)
     (catch Exception e
-      (do (println "Error during the http server init.")
-          (println e)
+      (do (log/error e "Error during the http server init.")
           (System/exit 1))))) 
