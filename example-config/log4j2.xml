@@ -16,6 +16,9 @@
         <Logger name="org.apache.kafka.clients.admin.AdminClientConfig" level="error" additivity="false">
             <AppenderRef ref="ConsoleAppender"/>
         </Logger>
+        <Logger name="config.core" level="error" additivity="false">
+            <AppenderRef ref="ConsoleAppender"/>
+        </Logger>
         <Root level="debug">
             <AppenderRef ref="ConsoleAppender"/>
         </Root>
