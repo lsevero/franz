@@ -21,7 +21,9 @@ The consumer optionally accepts a `http-status` which is the status code to be p
 
 Explained config.edn:
 ```clojure
-{;The kafka section contain all the java properties to control both consumer and producer. The same as the property files.
+{;Default kafka configs
+;The kafka section contain all the java properties to control both consumer and producer. The same as the property files.
+;they can be overwritten per route on the 'routes' section
 :kafka {:consumer {"bootstrap.servers" "localhost:9092" 
                     "group.id" "test"
                     "auto.offset.reset" "latest"
@@ -41,7 +43,8 @@ Explained config.edn:
         :port 3000
         }
  ;Swagger options
- :swagger {:title "SeveroHTTPConnector"
+ :swagger {:enabled? true ;swagger can be turned off setting this config to false. Defaults to true when it is not available.
+           :title "SeveroHTTPConnector"
            :description "Connecting http to kafka"
            :path "/"}
  ;Any option that is not given at the `routes` is replaced to one the these default values
