@@ -118,7 +118,8 @@
       (let [uuid (str (UUID/randomUUID))
             payload (-> parameters
                       (assoc :http-response-id uuid)
-                      (assoc :headers headers))
+                      (assoc :headers headers)
+                      (assoc :uri (:uri req)))
             canal-resposta (chan)]
         (swap! cache assoc uuid canal-resposta)
         (log/trace "cache: " @cache)
