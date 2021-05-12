@@ -87,16 +87,16 @@ Explained config.edn:
                         :parameters {:query [:map [:number [:and int? [:> 6]]]]}
                         :summary "testing get"
                         }}
-          "/other-test" {:post {:send-topic "poc3"
-                                 :listen-topic "poc3"
-                                 :timeout 2000
-                                 :poll-duration 100;milliseconds
-                                 :summary "more test"
-                                 ;We can define kafka configs per route as well
-                                 ;these maps will be merged against the kafka configs above, per-route configs prevail
-                                 :consumer {"group.id" "other-test"
-                                           }
-                                 :producer {}
+          "/other-test/:id" {:post {:send-topic "poc3"
+                                    :listen-topic "poc3"
+                                    :timeout 2000
+                                    :poll-duration 100;milliseconds
+                                    :summary "more test"
+                                    ;We can define kafka configs per route as well
+                                    ;these maps will be merged against the kafka configs above, per-route configs prevail
+                                    :consumer {"group.id" "other-test"
+                                              }
+                                    :producer {}
                                  }}
           }
  }
