@@ -113,10 +113,12 @@
         cache (atom {})]
     (consumer! listen-topic consumer-cfg cache :duration poll-duration)
     (producer! send-topic partitions replication producer-cfg canal-producer)
-    (fn [{:keys [parameters] :as req}]
+    (fn [{:keys [parameters headers] :as req}]
       (log/trace "http-request: " req)
       (let [uuid (str (UUID/randomUUID))
-            payload (assoc parameters :http-response-id uuid)
+            payload (-> parameters
+                      (assoc :http-response-id uuid)
+                      (assoc :headers headers))
             canal-resposta (chan)]
         (swap! cache assoc uuid canal-resposta)
         (log/trace "cache: " @cache)
@@ -167,8 +169,11 @@
                                            conf-final (if parameters
                                                         conf-aux
                                                         (assoc conf-aux :parameters (if (#{:get :head} method)
-                                                                                      {:query map?}
                                                                                       {:query map?
+                                                                                       :path map?
+                                                                                       }
+                                                                                      {:query map?
+                                                                                       :path map?
                                                                                        :body map?})))]
 
                                        [method conf-final]))
@@ -226,7 +231,17 @@
                   {:path (or (-> env :swagger :path) "/")
                    :config {:validatorUrl nil
                             :operationsSorter "alpha"}})
-                (ring/create-default-handler))
+                (ring/create-default-handler
+                  {:not-found (constantly {:status 404
+                                           :headers {"Content-Type" "application/json"}
+                                           :body (json/generate-string {:message "Not found"})})
+                   :method-not-allowed (constantly {:status 405
+                                                    :headers {"Content-Type" "application/json"}
+                                                    :body (json/generate-string {:message "Method not allowed"})})
+                   :not-acceptable (constantly {:status 406
+                                                :headers {"Content-Type" "application/json"}
+                                                :body (json/generate-string {:message "Not acceptable"})})
+                   }))
               {:executor sieppari/executor})]
     (jetty/run-jetty app {:port (or (-> env :http :port) 3000)
                           :join? true
@@ -276,6 +291,18 @@
                                        (coercion/coerce-request-interceptor)
                                        ;; multipart
                                        (multipart/multipart-interceptor)]}})
+              (ring/routes
+                (ring/create-default-handler
+                  {:not-found (constantly {:status 404
+                                           :headers {"Content-Type" "application/json"}
+                                           :body (json/generate-string {:message "Not found"})})
+                   :method-not-allowed (constantly {:status 405
+                                                    :headers {"Content-Type" "application/json"}
+                                                    :body (json/generate-string {:message "Method not allowed"})})
+                   :not-acceptable (constantly {:status 406
+                                                :headers {"Content-Type" "application/json"}
+                                                :body (json/generate-string {:message "Not acceptable"})})
+                   }))
               {:executor sieppari/executor})]
     (jetty/run-jetty app {:port (or (-> env :http :port) 3000)
                           :join? true
@@ -289,14 +316,13 @@
   (try
     (log/info "Reading the config file...")
     (when-not (malli/validate config-spec env)
-      (println (apply str (repeat 120 "=")))
-      (println "Config file not valid!!!!")
-      (println)
-      (println (-> config-spec
+      (log/error (apply str (repeat 120 "=")))
+      (log/error "Config file not valid!!!!")
+      (log/error (-> config-spec
                    (malli/explain env)
                    me/with-spell-checking
                    me/humanize))
-      (println (apply str (repeat 120 "=")))
+      (log/error (apply str (repeat 120 "=")))
       (System/exit 1))
     (catch Exception e
       (do (log/error e "Error validating the config file")

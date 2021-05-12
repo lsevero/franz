@@ -43,12 +43,12 @@
                          }
                   :get {:send-topic "poc2"
                         :listen-topic "poc2"
-                        :timeout 200
+                        :timeout 2000
                         :poll-duration 100
                         :parameters {:query [:map [:number [:and int? [:> 6]]]]}
                         :summary "testing get"
                         }}
-          "/other-test" {:post {:send-topic "poc3"
+          "/other-test/:id" {:post {:send-topic "poc3"
                                 :listen-topic "poc3"
                                 :timeout 2000
                                 :poll-duration 100;milliseconds
