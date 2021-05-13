@@ -1,7 +1,6 @@
 (ns severo-http-connector.producer
   (:gen-class)
   (:require
-    [cheshire.core :as json]
     [clojure.core.async
      :as a
      :refer [<! go-loop]]

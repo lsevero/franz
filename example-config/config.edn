@@ -27,35 +27,95 @@
             :replication 3
             }
  :routes {"/test" {:post {:send-topic "poc"
-                         :listen-topic "poc"
+                          :listen-topic "poc"
+                          :timeout 2000
+                          :partitions 1
+                          :replication 3
+                          :poll-duration 100;milliseconds
+                          :summary "test"
+                          :parameters {:body [:and
+                                              [:map
+                                               [:x [:and int? [:> 6]]]
+                                               [:y number?]]
+                                              [:fn (fn [{:keys [x y]}] (> x y))]]
+                                       :query [:map
+                                               [:id string?]]}
+                          }
+                   :get {:send-topic "poc2"
+                         :listen-topic "poc2"
                          :timeout 2000
-                         :partitions 1
-                         :replication 3
-                         :poll-duration 100;milliseconds
-                         :summary "test"
-                         :parameters {:body [:and
-                                             [:map
-                                              [:x [:and int? [:> 6]]]
-                                              [:y number?]]
-                                             [:fn (fn [{:keys [x y]}] (> x y))]]
-                                      :query [:map
-                                              [:id string?]]}
-                         }
-                  :get {:send-topic "poc2"
-                        :listen-topic "poc2"
-                        :timeout 2000
-                        :poll-duration 100
-                        :parameters {:query [:map [:number [:and int? [:> 6]]]]}
-                        :summary "testing get"
-                        }}
+                         :poll-duration 100
+                         :parameters {:query [:map [:number [:and int? [:> 6]]]]}
+                         :summary "testing get"
+                         }}
           "/other-test/:id" {:post {:send-topic "poc3"
-                                :listen-topic "poc3"
-                                :timeout 2000
-                                :poll-duration 100;milliseconds
-                                :summary "more test"
-                                :consumer {"group.id" "other-test"
-                                           }
-                                :producer {}
-                                }}
+                                    :listen-topic "poc3"
+                                    :timeout 2000
+                                    :poll-duration 100;milliseconds
+                                    :summary "more test"
+                                    :consumer {"group.id" "other-test"
+                                               }
+                                    :producer {}
+                                    }}
+          "/avro" {:post {:send-topic "avro"
+                          :listen-topic "avro"
+                          :timeout 2000
+                          :poll-duration 100
+                          :summary "Avro serialization"
+                          :parameters {:body [:map [:name string?]
+                                                   [:age int?]]}
+                          :serialization {:type :avro
+                                          :producer-spec {:type :record
+                                                          :name input
+                                                          :fields [{:name :headers
+                                                                    :type {:type :map
+                                                                           :values :string}
+                                                                    }
+                                                                   {:name :uri
+                                                                    :type :string
+                                                                    }
+                                                                   {:name :http-response-id
+                                                                    :type :string
+                                                                    }
+                                                                   {:name :parameters
+                                                                    :type {:name :parameters-aux
+                                                                           :type :record
+                                                                           :fields [{:name :name
+                                                                                     :type :string
+                                                                                     }
+                                                                                    {:name :age
+                                                                                     :type :int
+                                                                                     }
+                                                                                    ]}
+                                                                    }
+                                                                   ]
+                                                          }
+                                          :consumer-spec {:type :record
+                                                          :name output
+                                                          :fields [{:name :headers
+                                                                    :type {:type :map
+                                                                           :values :string}
+                                                                    }
+                                                                   {:name :uri
+                                                                    :type :string
+                                                                    }
+                                                                   {:name :http-response-id
+                                                                    :type :string
+                                                                    }
+                                                                   {:name :parameters
+                                                                    :type {:name :parameters-aux
+                                                                           :type :record
+                                                                           :fields [{:name :name
+                                                                                     :type :string
+                                                                                     }
+                                                                                    {:name :age
+                                                                                     :type :int
+                                                                                     }
+                                                                                    ]}
+                                                                    }
+                                                                   ]
+                                                          }
+                                          }
+                          }}
           }
  }

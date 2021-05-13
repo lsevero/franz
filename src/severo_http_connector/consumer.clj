@@ -1,6 +1,5 @@
 (ns severo-http-connector.consumer
   (:require
-    [cheshire.core :as json]
     [clojure.core.async
      :as a
      :refer [>! go-loop]]
@@ -19,14 +18,14 @@
     (.putAll (merge (-> env :kafka :consumer) (or cfg {})))))
 
 (defn consumer!
-  [topic consumer-cfg cache & {:keys [duration] :or {duration 100}}]
+  [topic consumer-cfg cache parse-fn & {:keys [duration] :or {duration 100}}]
   (let [consumer (KafkaConsumer. ^Properties (properties-consumer consumer-cfg))]
     (.subscribe consumer [topic])
     (go-loop [records []]
              (log/trace (str "records:" records))
              (doseq [^ConsumerRecord record records]
                (try
-                 (let [{:keys [http-response-id] :as value-record} (json/parse-string (.value record) true)
+                 (let [{:keys [http-response-id] :as value-record} (parse-fn (.value record))
                        key-record (.key record)
                        canal-resposta (get @cache http-response-id)
                        ]

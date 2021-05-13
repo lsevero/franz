@@ -1,10 +1,5 @@
 (ns severo-http-connector.core
   (:require
-    [cheshire.core :as json]
-    [clojure.core.async
-     :as a
-     :refer [>! <! >!! <!! go chan buffer close! thread go-loop
-             alts! alts!! timeout]]
     [clojure.tools.logging :as log] 
     [config.core :refer [env]]
     [reitit.ring :as ring]
@@ -26,160 +21,13 @@
     [malli.error :as me]
     [muuntaja.core :as m]
     [ring.adapter.jetty :as jetty]
+    [cheshire.core :as json]
     [severo-http-connector
-     [consumer :refer [consumer!]]
-     [producer :refer [producer!]]])
+     [handler :refer [prepare-reitit-handlers]]
+     [spec :refer [config-spec]]])
   (:import
     [java.util UUID])
   (:gen-class))
-
-(def get-route-spec
-  [:map {:closed true}
-   [:send-topic {:optional true} string?]
-   [:listen-topic {:optional true} string?]
-   [:poll-duration {:optional true} pos-int?]
-   [:timeout {:optional true} pos-int?]
-   [:partitions {:optional true} pos-int?]
-   [:replication {:optional true} pos-int?]
-   [:summary {:optional true} string?]
-   [:consumer {:optional true} [:map-of :string :string]]
-   [:producer {:optional true} [:map-of :string :string]]
-   [:parameters {:optional true} [:map {:closed true}
-                                  [:query any?]]]])
-
-(def post-route-spec
-  [:map {:closed true}
-   [:send-topic {:optional true} string?]
-   [:listen-topic {:optional true} string?]
-   [:poll-duration {:optional true} pos-int?]
-   [:timeout {:optional true} pos-int?]
-   [:partitions {:optional true} pos-int?]
-   [:replication {:optional true} pos-int?]
-   [:summary {:optional true} string?]
-   [:consumer {:optional true} [:map-of :string :string]]
-   [:producer {:optional true} [:map-of :string :string]]
-   [:parameters {:optional true} [:map {:closed true}
-                                  [:query any?]
-                                  [:body any?]]]])
-
-(def config-spec
-  [:map
-   [:kafka [:map {:closed true}
-            [:consumer [:map-of :string :string]]
-            [:producer [:map-of :string :string]]
-            ]]
-   [:http [:and
-           [:map
-            [:min-threads {:optional true} pos-int?]
-            [:max-threads {:optional true} pos-int?]
-            [:max-idle-time {:optional true} pos-int?]
-            [:request-header-size {:optional true} pos-int?]
-            [:port {:optional true} [:and pos-int? [:< 65535]]]
-            ]
-           [:fn {:error/message "max-threads need to be greater than min-threads"} (fn [{:keys [min-threads max-threads]}] (> max-threads min-threads))]
-           ]]
-   [:swagger [:map {:closed true}
-              [:enabled? {:optional true} boolean?]
-              [:title {:optional true} string?]
-              [:description {:optional true} string?]
-              [:path {:optional true} string?]
-              ]]
-   [:defaults [:map {:closed true}
-               [:send-topic {:optional true} string?]
-               [:listen-topic {:optional true} string?]
-               [:poll-duration {:optional true} pos-int?]
-               [:timeout {:optional true} pos-int?]
-               [:partitions {:optional true} pos-int?]
-               [:replication {:optional true} pos-int?]
-               ]]
-   [:routes 
-    [:and [:map-of :string [:and
-                            [:map {:closed true}
-                             [:get {:optional true} get-route-spec]
-                             [:head {:optional true} get-route-spec]
-                             [:post {:optional true} post-route-spec]
-                             [:put {:optional true} post-route-spec]
-                             [:delete {:optional true} post-route-spec]
-                             [:connect {:optional true} post-route-spec]
-                             [:options {:optional true} post-route-spec]
-                             [:trace {:optional true} post-route-spec]
-                             [:patch {:optional true} post-route-spec]]
-                            [:fn {:error/message "method map cannot be empty"} (fn [m] (not (empty? m)))]]]
-     [:fn {:error/message "route map cannot be empty"} (fn [m] (not (empty? m)))]]]])
-
-(defn create-generic-handler
-  [send-topic listen-topic timeout-ms poll-duration partitions replication consumer-cfg producer-cfg]
-  (let [canal-producer (chan)
-        cache (atom {})]
-    (consumer! listen-topic consumer-cfg cache :duration poll-duration)
-    (producer! send-topic partitions replication producer-cfg canal-producer)
-    (fn [{:keys [parameters headers] :as req}]
-      (log/trace "http-request: " req)
-      (let [uuid (str (UUID/randomUUID))
-            payload (-> parameters
-                      (assoc :http-response-id uuid)
-                      (assoc :headers headers)
-                      (assoc :uri (:uri req)))
-            canal-resposta (chan)]
-        (swap! cache assoc uuid canal-resposta)
-        (log/trace "cache: " @cache)
-        (>!! canal-producer (json/generate-string payload))
-        (let [[value channel] (alts!! [canal-resposta (timeout timeout-ms)])
-              _ (swap! cache dissoc uuid)]
-          (if value 
-            (let [{:keys [http-status] :or {http-status 200}} value]
-              (log/trace "consumed payload: " value)
-              {:status http-status
-               :headers {"Content-Type" "application/json"}
-               :body (json/generate-string (apply dissoc value [:http-status :http-response-id]))})
-            {:status 504
-             :headers {"Content-Type" "application/json"}
-             :body (json/generate-string {:message "Timeout."})}))))))
-
-(defn prepare-reitit-handlers
-  []
-  (into [""
-         {:swagger {:tags ["api"]}}]
-        (mapv (fn [[route method-map]]
-                [route (into {}
-                             (mapv (fn [[method {:keys [send-topic listen-topic timeout poll-duration
-                                                        partitions replication consumer producer
-                                                        parameters] :as conf}]]
-                                     (let [conf-aux (-> conf
-                                                        (dissoc :send-topic :listen-topic :timeout :poll-duration :partitions :replication :consumer :producer)
-                                                        (assoc :handler (create-generic-handler (or send-topic
-                                                                                                    (-> env :defaults :send-topic)
-                                                                                                    (throw (ex-info "send-topic cannot be null" {})))
-                                                                                                (or listen-topic
-                                                                                                    (-> env :defaults :listen-topic)
-                                                                                                    (throw (ex-info "listen-topic cannot be null" {})))
-                                                                                                (or timeout
-                                                                                                    (-> env :defaults :timeout)
-                                                                                                    (throw (ex-info "timeout cannot be null" {})))
-                                                                                                (or poll-duration
-                                                                                                    (-> env :defaults :poll-duration)
-                                                                                                    (throw (ex-info "poll-duration cannot be null" {})))
-                                                                                                (or partitions
-                                                                                                    (-> env :defaults :partitions)
-                                                                                                    (throw (ex-info "partitions cannot be null" {})))
-                                                                                                (or replication 
-                                                                                                    (-> env :defaults :replication)
-                                                                                                    (throw (ex-info "replication" {})))
-                                                                                                (or consumer {})
-                                                                                                (or producer {}))))
-                                           conf-final (if parameters
-                                                        conf-aux
-                                                        (assoc conf-aux :parameters (if (#{:get :head} method)
-                                                                                      {:query map?
-                                                                                       :path map?
-                                                                                       }
-                                                                                      {:query map?
-                                                                                       :path map?
-                                                                                       :body map?})))]
-
-                                       [method conf-final]))
-                                   method-map))])
-              (:routes env))))
 
 (defn swagger-http-server 
   []
