@@ -10,14 +10,14 @@
     [config.core :refer [env]]
     [severo-http-connector
      [consumer :refer [consumer!]]
-     [producer :refer [producer!]] ])
+     [producer :refer [producer!]]])
   (:import
     [java.util UUID])
   (:gen-class))
 
 (defmulti create-generic-handler (fn [cfg] (-> cfg :serialization :type)))
 
-(defmethod create-generic-handler :defaulti
+(defmethod create-generic-handler :default
   [cfg]
   (throw (ex-info "There is no implementation for this configuration." {:cfg cfg})))
 
@@ -31,7 +31,8 @@
                                                        (throw e)))) :duration poll-duration)
     (producer! send-topic partitions replication producer canal-producer)
     (fn [{:keys [parameters headers] :as req}]
-      (try
+      (binding [abracad.avro.util/*mangle-names* false]
+        (try
         (log/trace "http-request: " req)
         (let [uuid (str (UUID/randomUUID))
               payload (-> parameters
@@ -57,7 +58,7 @@
           (do (log/error e "Unexpected exception")
               {:status 500
                :headers {"Content-Type" "application/json"}
-               :body (json/generate-string {:message (.getMessage e)})}))))))
+               :body (json/generate-string {:message (.getMessage e)})})))))))
 
 (defmethod create-generic-handler :avro
   [{:keys [send-topic listen-topic timeout poll-duration partitions replication consumer producer]
@@ -89,7 +90,7 @@
           (swap! cache assoc uuid canal-resposta)
           (log/trace "cache: " @cache)
           (>!! canal-producer (try
-                                (avro/binary-encoded payload)
+                                (avro/binary-encoded producer-schema payload)
                                 (catch Exception e
                                   (do (log/error e (str "Error encoding the payload with the given schema. send-topic: " send-topic))
                                       (throw e)))))
@@ -111,15 +112,91 @@
                :body (json/generate-string {:message (.getMessage e)})}))))))
 
 (comment 
-  (let [schema (avro/parse-schema
+  (binding [abracad.avro.util/*mangle-names* false] (let [schema (avro/parse-schema
                  {:name "example", :type "record",
                   :fields [{:name "left", :type "string"}
                            {:name "right", :type "long"}]
                   })]
     (->> #_["foo" 31337]
-         {:left "hue" :right 123 :vish "seila"}
+         {:left "hue" :right 123}
          (avro/binary-encoded schema)
-         (avro/decode schema))))
+         (avro/decode schema)))
+  
+  (binding [abracad.avro.util/*mangle-names* true]
+   (let [schema (avro/parse-schema {:type :record 
+                                   :name :example_input 
+                                   :fields [{:name :headers 
+                                               :type {:type :map
+                                                      :values :string}
+                                               }
+                                            {:name :uri 
+                                             :type :string 
+                                             }
+                                            {:name :http-response-id 
+                                             :type :string 
+                                             }
+                                            {:name :body 
+                                               :type {:name :body_aux
+                                                      :type :record
+                                                      :fields [{:name :name
+                                                                :type :string
+                                                                }
+                                                               {:name :age
+                                                                :type :int
+                                                                }
+                                                               ]}
+                                               }
+                                            ]
+                                   })]
+    (->> (json/parse-string
+            "{\"body\":{\"age\":0,\"name\":\"string\"},\"http-response-id\":\"af8ef908-2ed1-4fce-a79f-9f4c193e9509\",\"headers\":{\"origin\":\"http://localhost:3000\",\"host\":\"localhost:3000\",\"accept_language\":\"pt_BR,pt;q=0.8,en_US;q=0.5,en;q=0.3\",\"cookie\":\"_xsrf=2|c5d3cd89|f0845c8d62d3eacf494790dc8ddb174e|1618867381; CSRF_Token_IAJOP=XPi9iGbaEihppyxe3PPDpnUSZNSJAkFn\",\"accept_encoding\":\"gzip, deflate\",\"referer\":\"http://localhost:3000/index.html\",\"connection\":\"keep_alive\",\"accept\":\"application/json\",\"content_length\":\"34\",\"content_type\":\"application/json\",\"user_agent\":\"Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:88.0) Gecko/20100101 Firefox/88.0\"},\"uri\":\"/avro\"}"
+            true
+           )
+         #_{:body {:age 0, :name "string"},
+          :http-response-id "af8ef908-2ed1-4fce-a79f-9f4c193e9509",
+          :headers {:referer "http://localhost:3000/index.html",
+                    :content_length "34",
+                    :user_agent "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:88.0) Gecko/20100101 Firefox/88.0",
+                    :content_type "application/json",
+                    :host "localhost:3000",
+                    :accept_encoding "gzip, deflate",
+                    :cookie "_xsrf=2|c5d3cd89|f0845c8d62d3eacf494790dc8ddb174e|1618867381; CSRF_Token_IAJOP=XPi9iGbaEihppyxe3PPDpnUSZNSJAkFn",
+                    :origin "http://localhost:3000",
+                    :accept_language "pt_BR,pt;q=0.8,en_US;q=0.5,en;q=0.3",
+                    :connection "keep_alive",
+                    :accept "application/json"},
+          :uri "/avro"}
+         (avro/binary-encoded schema)
+         (avro/decode schema))
+    ))
+
+  
+  
+  (let [schema (avro/parse-schema 
+                 "{
+                 \"namespace\": \"example.avro\",
+                 \"type\": \"record\",
+                 \"name\": \"User\",
+                 \"fields\": [
+                 {\"name\": \"name\", \"type\": \"string\"},
+                 {\"name\": \"favorite_number\",  \"type\": [\"null\", \"int\"]},
+                 {\"name\": \"favorite_color\", \"type\": [\"null\", \"string\"]}
+                 ] 
+                 }
+                " 
+                 )]
+    (->> {:name "hue"
+          :favorite-number 7
+          :favorite-color nil
+          }
+         (avro/binary-encoded schema)
+         (avro/decode schema)
+      
+      
+      )
+    
+    ))
+  )
 
 (defn prepare-reitit-handlers
   []
