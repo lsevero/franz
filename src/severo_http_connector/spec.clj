@@ -36,6 +36,7 @@
    [:timeout {:optional true} pos-int?]
    [:partitions {:optional true} pos-int?]
    [:replication {:optional true} pos-int?]
+   [:mode {:optional true} [:enum :request-response :fire-and-forget]]
    [:summary {:optional true} string?]
    [:consumer {:optional true} [:map-of :string :string]]
    [:producer {:optional true} [:map-of :string :string]]

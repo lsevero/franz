@@ -1,0 +1,30 @@
+{
+    "type": "record",
+    "name": "example_input",
+    "fields": [{
+        "name": "headers",
+        "type": {
+            "type": "map",
+            "values": "string"
+        }
+    }, {
+        "name": "uri",
+        "type": "string"
+    }, {
+        "name": "http_response_id",
+        "type": "string"
+    }, {
+        "name": "body",
+        "type": {
+            "type": "record",
+            "name": "body_aux",
+            "fields": [{
+                "name": "name",
+                "type": "string"
+            }, {
+                "name": "age",
+                "type": "int"
+            }]
+        }
+    }]
+}

@@ -25,7 +25,10 @@
              (log/trace (str "records:" records))
              (doseq [^ConsumerRecord record records]
                (try
-                 (let [{:keys [http-response-id] :as value-record} (parse-fn (.value record))
+                 (let [{lisp-case :http-response-id
+                        snake-case :http_response-id
+                        :as value-record} (parse-fn (.value record))
+                       http-response-id (or lisp-case snake-case)
                        key-record (.key record)
                        canal-resposta (get @cache http-response-id)
                        ]
