@@ -40,7 +40,9 @@ Explained config.edn:
         :max-threads 100
         :max-idle-time 1800000 
         :request-header-size 8192
-        :port 3000
+        ;We are using the juxt/aero config library to read the config files
+        ;we can pass environment variables inside the config file, if no venv has passed will default to the second argument of the #or clause
+        :port #or [#env PORT 3000]
         }
  ;Swagger options
  :swagger {:enabled? true
@@ -95,14 +97,11 @@ Explained config.edn:
                                       :summary "fire and forget route"
                                       ; Operation mode, can be :request-response or :fire-and-forget, defaults to :request-response if not available
                                       :mode :fire-and-forget
-                                      ;We can define kafka configs per route as well
-                                      ;these maps will be merged against the kafka configs above, per-route configs prevail
-                                      :consumer {}
-                                      :producer {"group.id" "fire_and_forget" 
-                                                 }
                                       }}
           ; Avro serialization
           "/avro" {:post {:send-topic "avro"
+                          ;We can define kafka configs per route as well
+                          ;these maps will be merged against the kafka configs above, per-route configs prevail
                           :consumer {"group.id" "avro"
                                      "auto.offset.reset" "latest"
                                      "key.deserializer" "org.apache.kafka.common.serialization.ByteArrayDeserializer"
