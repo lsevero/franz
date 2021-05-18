@@ -7,8 +7,8 @@
      :refer [>!! chan alts!!]]
     [clojure.tools.logging :as log] 
     [clojure.java.io :as io]
-    [config.core :refer [env]]
     [severo-http-connector
+     [config :refer [config]]
      [consumer :refer [consumer!]]
      [producer :refer [producer!]]])
   (:import
@@ -180,17 +180,17 @@
                                                         partitions replication consumer producer
                                                         serialization parameters mode]
                                                  :or {serialization {:type :json}
-                                                      send-topic (or (-> env :defaults :send-topic)
+                                                      send-topic (or (-> config :defaults :send-topic)
                                                                      (throw (ex-info "send-topic cannot be null" {})))
-                                                      listen-topic (or (-> env :defaults :listen-topic)
+                                                      listen-topic (or (-> config :defaults :listen-topic)
                                                                        (throw (ex-info "listen-topic cannot be null" {})))
-                                                      timeout (or (-> env :defaults :timeout)
+                                                      timeout (or (-> config :defaults :timeout)
                                                                   (throw (ex-info "timeout cannot be null" {})))
-                                                      poll-duration (or (-> env :defaults :poll-duration)
+                                                      poll-duration (or (-> config :defaults :poll-duration)
                                                                         (throw (ex-info "poll-duration cannot be null" {})))
-                                                      partitions (or (-> env :defaults :partitions)
+                                                      partitions (or (-> config :defaults :partitions)
                                                                      (throw (ex-info "partitions cannot be null" {})))
-                                                      replication (or (-> env :defaults :replication)
+                                                      replication (or (-> config :defaults :replication)
                                                                       (throw (ex-info "replication" {})))
                                                       mode :request-response
                                                       consumer {}
@@ -220,4 +220,4 @@
                                                                                        :body map?})))]
                                        [method conf-final]))
                                    method-map))])
-              (:routes env))))
+              (:routes config))))
