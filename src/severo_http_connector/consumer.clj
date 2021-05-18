@@ -4,8 +4,7 @@
      :as a
      :refer [>! go-loop]]
     [clojure.tools.logging :as log] 
-    [config.core :refer [env]]
-    )
+    [severo-http-connector.config :refer [config]])
   (:import
     [java.util Properties]
     [java.time Duration]
@@ -15,7 +14,7 @@
 (defn properties-consumer ^Properties
   [cfg]
   (doto (Properties.)
-    (.putAll (merge (-> env :kafka :consumer) (or cfg {})))))
+    (.putAll (merge (-> config :kafka :consumer) (or cfg {})))))
 
 (defn consumer!
   [topic consumer-cfg cache parse-fn & {:keys [duration] :or {duration 100}}]

@@ -1,7 +1,6 @@
 (ns severo-http-connector.core
   (:require
     [clojure.tools.logging :as log] 
-    [config.core :refer [env]]
     [reitit.ring :as ring]
     [reitit.http :as http]
     [reitit.coercion.spec]
@@ -17,14 +16,14 @@
     [reitit.coercion.malli]
     [reitit.ring.malli]
     [malli.util :as mu]
-    [malli.core :as malli]
-    [malli.error :as me]
     [muuntaja.core :as m]
     [ring.adapter.jetty :as jetty]
     [cheshire.core :as json]
+    [mount.core :as mount]
     [severo-http-connector
+     [config :refer [config]]
      [handler :refer [prepare-reitit-handlers]]
-     [spec :refer [config-spec]]])
+     ])
   (:import
     [java.util UUID])
   (:gen-class))
@@ -35,8 +34,8 @@
               (http/router
                 [["/swagger.json"
                   {:get {:no-doc true
-                         :swagger {:info {:title (or (-> env :swagger :title) "SeveroHTTPConnector")
-                                          :description (or (-> env :swagger :description) "Connecting http to kafka")}}
+                         :swagger {:info {:title (or (-> config :swagger :title) "SeveroHTTPConnector")
+                                          :description (or (-> config :swagger :description) "Connecting http to kafka")}}
                          :handler (swagger/create-swagger-handler)}}]
                  (prepare-reitit-handlers)
                  ]
@@ -77,7 +76,7 @@
                                        (multipart/multipart-interceptor)]}})
               (ring/routes
                 (swagger-ui/create-swagger-ui-handler
-                  {:path (or (-> env :swagger :path) "/")
+                  {:path (or (-> config :swagger :path) "/")
                    :config {:validatorUrl nil
                             :operationsSorter "alpha"}})
                 (ring/create-default-handler
@@ -92,12 +91,12 @@
                                                 :body (json/generate-string {:message "Not acceptable"})})
                    }))
               {:executor sieppari/executor})]
-    (jetty/run-jetty app {:port (or (-> env :http :port) 3000)
+    (jetty/run-jetty app {:port (or (-> config :http :port) 3000)
                           :join? true
-                          :min-threads (or (-> env :http :min-threads) 8)
-                          :max-threads (or (-> env :http :max-threads) 20)
-                          :max-idle-time (or (-> env :http :max-idle-time) (* 60 1000 10))
-                          :request-header-size (or (-> env :http :request-header-size) 8192)
+                          :min-threads (or (-> config :http :min-threads) 8)
+                          :max-threads (or (-> config :http :max-threads) 20)
+                          :max-idle-time (or (-> config :http :max-idle-time) (* 60 1000 10))
+                          :request-header-size (or (-> config :http :request-header-size) 8192)
                           })))
 
 (defn http-server 
@@ -153,35 +152,27 @@
                                                 :body (json/generate-string {:message "Not acceptable"})})
                    }))
               {:executor sieppari/executor})]
-    (jetty/run-jetty app {:port (or (-> env :http :port) 3000)
-                          :join? true
-                          :min-threads (or (-> env :http :min-threads) 8)
-                          :max-threads (or (-> env :http :max-threads) 20)
-                          :max-idle-time (or (-> env :http :max-idle-time) (* 60 1000 10))
-                          :request-header-size (or (-> env :http :request-header-size) 8192)
+    (jetty/run-jetty app {:port (or (-> config :http :port) 3000)
+                          :join? false
+                          :min-threads (or (-> config :http :min-threads) 8)
+                          :max-threads (or (-> config :http :max-threads) 20)
+                          :max-idle-time (or (-> config :http :max-idle-time) (* 60 1000 10))
+                          :request-header-size (or (-> config :http :request-header-size) 8192)
                           })))
 
+(mount/defstate webserver
+  :start (try
+           (log/info "Config file is valid")
+           (log/info "Initing web server")
+           (if (false? (-> config :swagger :enabled?))
+             (http-server)
+             (swagger-http-server))
+           (catch Exception e
+             (do (log/error e "Error during the http server init.")
+                 (System/exit 1))))
+  :stop (do (log/info "Stopping webserver")
+            (.stop ^org.eclipse.jetty.server.Server webserver)))
+
 (defn -main [& args]
-  (try
-    (log/info "Reading the config file...")
-    (when-not (malli/validate config-spec env)
-      (log/error (apply str (repeat 120 "=")))
-      (log/error "Config file not valid!!!!")
-      (log/error (-> config-spec
-                   (malli/explain env)
-                   me/with-spell-checking
-                   me/humanize))
-      (log/error (apply str (repeat 120 "=")))
-      (System/exit 1))
-    (catch Exception e
-      (do (log/error e "Error validating the config file")
-          (System/exit 1))))
-  (try
-    (log/info "Config file is valid")
-    (log/info "Initing web server")
-    (if (false? (-> env :swagger :enabled?))
-      (http-server)
-      (swagger-http-server))
-    (catch Exception e
-      (do (log/error e "Error during the http server init.")
-          (System/exit 1))))) 
+  (mount/start #'config
+               #'webserver)) 

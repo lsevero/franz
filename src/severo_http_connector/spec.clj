@@ -48,13 +48,13 @@
                                   [:body any?]]]])
 
 (def config-spec
-  [:map
+  [:map {:closed true}
    [:kafka [:map {:closed true}
             [:consumer [:map-of :string :string]]
             [:producer [:map-of :string :string]]
             ]]
    [:http [:and
-           [:map
+           [:map {:closed true}
             [:min-threads {:optional true} pos-int?]
             [:max-threads {:optional true} pos-int?]
             [:max-idle-time {:optional true} pos-int?]

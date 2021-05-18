@@ -5,7 +5,7 @@
      :as a
      :refer [<! go-loop]]
     [clojure.tools.logging :as log] 
-    [config.core :refer [env]]
+    [severo-http-connector.config :refer [config]]
     )
   (:import
     [java.util Properties]
@@ -16,7 +16,7 @@
 (defn properties-producer ^Properties
   [cfg]
   (doto (Properties.)
-    (.putAll (merge (-> env :kafka :producer) (or cfg {})))))
+    (.putAll (merge (-> config :kafka :producer) (or cfg {})))))
 
 (defn producer! [topic partitions replication producer-cfg canal-producer]
   (letfn [(create-topic! [^String topic ^long partitions ^long replication ^Properties cloud-config]

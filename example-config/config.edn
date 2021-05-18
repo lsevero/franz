@@ -72,14 +72,11 @@
                                       :summary "fire and forget route"
                                       ; Operation mode, can be :request-response or :fire-and-forget, defaults to :request-response if not available
                                       :mode :fire-and-forget
-                                      ;We can define kafka configs per route as well
-                                      ;these maps will be merged against the kafka configs above, per-route configs prevail
-                                      :consumer {}
-                                      :producer {"group.id" "fire_and_forget" 
-                                                 }
                                       }}
           ; Avro serialization
           "/avro" {:post {:send-topic "avro"
+                          ;We can define kafka configs per route as well
+                          ;these maps will be merged against the kafka configs above, per-route configs prevail
                           :consumer {"group.id" "avro"
                                      "auto.offset.reset" "latest"
                                      "key.deserializer" "org.apache.kafka.common.serialization.ByteArrayDeserializer"

@@ -5,7 +5,8 @@
             :url "https://www.eclipse.org/legal/epl-2.0/"}
   :dependencies [[org.clojure/clojure "1.10.3"]
                  [cheshire "5.8.1"]
-                 [yogthos/config "1.1.4"]
+                 [mount "0.1.16"]
+                 [aero "1.1.6"]
                  [ring/ring-jetty-adapter "1.7.1"]
                  [com.fasterxml.jackson.core/jackson-databind "2.12.3"]
                  [com.fasterxml.jackson.core/jackson-core "2.12.3"]
@@ -31,6 +32,7 @@
                    :resource-paths ["resources"
                                     "example-config"
                                     ]
+                   :jvm-opts ["-Dconfig=example-config/config.edn"]
                    :repl-options {:init-ns severo-http-connector.core} 
                    }
              :uberjar {:aot :all
