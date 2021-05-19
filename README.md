@@ -13,9 +13,13 @@ java -Dlog4j.configurationFile=<path-to>/log4j2.xml -Dconfig=<path-to>/config.ed
 ```
 Check the config files in the `example-config` folder.
 
+### Operation modes
+1. Request-response (the default mode)
 The kafka producer will insert a `http-response-id` field to the root of the input payload to be sent to kafka on the `send-topic`.
 The HTTP connection will keep waiting for a message on the `listen-topic` with the `http-response-id` field, when we receive the message it will be returned to http.
 The consumer optionally accepts a `http-status` which is the status code to be passed on the http response, if no http-status is given will be returned a 200.
+2. Fire and forget
+The HTTP payload will be sent to `send-topic` as is and will return instantly a 200, no consumer is instantiated.
 
 ## `config.edn`
 
