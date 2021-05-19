@@ -1,10 +1,10 @@
-(ns severo-http-connector.consumer
+(ns franz.consumer
   (:require
     [clojure.core.async
      :as a
      :refer [>! go-loop]]
     [clojure.tools.logging :as log] 
-    [severo-http-connector.config :refer [config]])
+    [franz.config :refer [config]])
   (:import
     [java.util Properties]
     [java.time Duration]

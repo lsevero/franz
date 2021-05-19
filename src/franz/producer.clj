@@ -1,11 +1,11 @@
-(ns severo-http-connector.producer
+(ns franz.producer
   (:gen-class)
   (:require
     [clojure.core.async
      :as a
      :refer [<! go-loop]]
     [clojure.tools.logging :as log] 
-    [severo-http-connector.config :refer [config]]
+    [franz.config :refer [config]]
     )
   (:import
     [java.util Properties]
@@ -19,20 +19,28 @@
     (.putAll (merge (-> config :kafka :producer) (or cfg {})))))
 
 (defn producer! [topic partitions replication producer-cfg canal-producer]
-  (letfn [(create-topic! [^String topic ^long partitions ^long replication ^Properties cloud-config]
-            (let [ac (AdminClient/create cloud-config)]
-              (try
-                (.createTopics ac [(NewTopic. topic partitions replication)])
-                ;; Ignore TopicExistsException, which would get thrown if the topic was previously created
-                (catch TopicExistsException e nil)
-                (finally
-                  (.close ac)))))
+  (letfn [(create-topic! [^String topic partitions replication ^Properties cloud-config]
+            (when (-> config :defaults :create-topic? true?)
+              (if (and (some? partitions) (some? replication))
+                (let [ac (AdminClient/create cloud-config)]
+                  (try
+                    (log/info (str "Creating topic " topic))
+                    (.createTopics ac [(NewTopic. topic ^long partitions ^long replication)])
+                    ;; Ignore TopicExistsException, which would get thrown if the topic was previously created
+                    (catch TopicExistsException e nil)
+                    (finally
+                      (log/info (str "Topic " topic " already exists, nothing to do."))
+                      (.close ac))))
+                (log/warn (str "No partitions and replications was informed, cannot create topic " topic)))))
+
           (print-ex [e] (log/error e "Failed to deliver message."))
+
           (print-metadata [^RecordMetadata x]
             (log/debug (format "Produced record to topic %s partition [%d] @ offest %d\n"
                               (.topic x)
                               (.partition x)
                               (.offset x))))]
+
     (let [producer (KafkaProducer. ^Properties (properties-producer producer-cfg))
           callback (reify Callback
                      (onCompletion [this metadata exception]

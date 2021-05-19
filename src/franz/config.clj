@@ -1,11 +1,11 @@
-(ns severo-http-connector.config
+(ns franz.config
   (:require [mount.core :as mount]
             [clojure.java.io :as io]
             [clojure.tools.logging :as log]
             [aero.core :refer [read-config]]
             [malli.core :as malli]
             [malli.error :as me]
-            [severo-http-connector.spec :refer [config-spec]]
+            [franz.spec :refer [config-spec]]
             ))
 
 (defn get-config!

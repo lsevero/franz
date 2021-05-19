@@ -23,11 +23,12 @@
         }
  ;Swagger options
  :swagger {:enabled? true
-           :title "SeveroHTTPConnector"
+           :title "Franz Gateway"
            :description "Connecting http to kafka"
            :path "/"}
  ;Any option that is not given at the `routes` is replaced to one the these default values
- :defaults {:send-topic "default"
+ :defaults {:create-topic? true; enable topic creation, set it to false to disable it. defaults to false.
+            :send-topic "default"
             :listen-topic "default"
             :poll-duration 200
             :timeout 5000
@@ -95,6 +96,9 @@
                                                    [:age int?]]}
                           :serialization {:type :avro ;can be :json or :avro, defaults to :json
                                           ;specs can be or in the map representation, or a path to the json spec.
+                                          ;We are using the damballa/abracad library to handle avro serialization
+                                          ;by default it translates all the fields in snake_case to lisp-case, set it to false to  turn this behaviour off.
+                                          :mangle true
                                           :producer-spec {:type :record
                                                           :name input
                                                           :fields [{:name :headers

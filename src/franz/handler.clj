@@ -1,4 +1,4 @@
-(ns severo-http-connector.handler
+(ns franz.handler
   (:require
     [cheshire.core :as json]
     [abracad.avro :as avro]
@@ -7,7 +7,7 @@
      :refer [>!! chan alts!!]]
     [clojure.tools.logging :as log] 
     [clojure.java.io :as io]
-    [severo-http-connector
+    [franz
      [config :refer [config]]
      [consumer :refer [consumer!]]
      [producer :refer [producer!]]])
@@ -64,7 +64,7 @@
 
 (defmethod create-generic-handler [:avro :request-response]
   [{:keys [send-topic listen-topic timeout poll-duration partitions replication consumer producer]
-    {:keys [consumer-spec producer-spec]} :serialization}]
+    {:keys [consumer-spec producer-spec mangle]} :serialization}]
   (let [canal-producer (chan)
         cache (atom {})
         consumer-schema (avro/parse-schema (if (string? consumer-spec)
@@ -81,39 +81,43 @@
                                                        (throw e)))) :duration poll-duration)
     (producer! send-topic partitions replication producer canal-producer)
     (fn [{:keys [parameters headers] :as req}]
-      (try
-        (log/trace "http-request: " req)
-        (let [uuid (str (UUID/randomUUID))
-              payload (-> parameters
-                          (assoc :http-response-id uuid)
-                          (assoc :headers headers)
-                          (assoc :uri (:uri req)))
-              canal-resposta (chan)]
-          (swap! cache assoc uuid canal-resposta)
-          (log/trace "cache: " @cache)
-          (>!! canal-producer (try
-                                (avro/binary-encoded producer-schema payload)
-                                (catch Exception e
-                                  (do (log/error e (str "Error encoding the payload with the given schema. send-topic: " send-topic))
-                                      (throw e)))))
-          (let [[value channel] (alts!! [canal-resposta (a/timeout timeout)])
-                _ (swap! cache dissoc uuid)]
-            (if value 
-              (let [http-status (or (:http-status value)
-                                    (:http_status value)
-                                    200)]
-                (log/trace "consumed payload: " value)
-                {:status http-status
+      (binding [abracad.avro.util/*mangle-names* (or mangle true)]
+        (try
+          (log/trace "http-request: " req)
+          (let [uuid (str (UUID/randomUUID))
+                payload (-> parameters
+                            (assoc (if (or mangle true)
+                                     :http-response-id
+                                     :http_response_id
+                                     ) uuid)
+                            (assoc :headers headers)
+                            (assoc :uri (:uri req)))
+                canal-resposta (chan)]
+            (swap! cache assoc uuid canal-resposta)
+            (log/trace "cache: " @cache)
+            (>!! canal-producer (try
+                                  (avro/binary-encoded producer-schema payload)
+                                  (catch Exception e
+                                    (do (log/error e (str "Error encoding the payload with the given schema. send-topic: " send-topic))
+                                        (throw e)))))
+            (let [[value channel] (alts!! [canal-resposta (a/timeout timeout)])
+                  _ (swap! cache dissoc uuid)]
+              (if value 
+                (let [http-status (or (:http-status value)
+                                      (:http_status value)
+                                      200)]
+                  (log/trace "consumed payload: " value)
+                  {:status http-status
+                   :headers {"Content-Type" "application/json"}
+                   :body (json/generate-string (apply dissoc value [:http-status :http-response-id :http_status :http_response_id]))})
+                {:status 504
                  :headers {"Content-Type" "application/json"}
-                 :body (json/generate-string (apply dissoc value [:http-status :http-response-id :http_status :http_response_id]))})
-              {:status 504
-               :headers {"Content-Type" "application/json"}
-               :body (json/generate-string {:message "Timeout."})})))
-        (catch Exception e
-          (do (log/error e "Unexpected exception")
-              {:status 500
-               :headers {"Content-Type" "application/json"}
-               :body (json/generate-string {:message (.getMessage e)})}))))))
+                 :body (json/generate-string {:message "Timeout."})})))
+          (catch Exception e
+            (do (log/error e "Unexpected exception")
+                {:status 500
+                 :headers {"Content-Type" "application/json"}
+                 :body (json/generate-string {:message (.getMessage e)})})))))))
 
 (defmethod create-generic-handler [:json :fire-and-forget]
   [{:keys [send-topic listen-topic timeout poll-duration partitions replication consumer producer]}]
@@ -140,7 +144,7 @@
 
 (defmethod create-generic-handler [:avro :fire-and-forget]
   [{:keys [send-topic listen-topic timeout poll-duration partitions replication consumer producer]
-    {:keys [consumer-spec producer-spec]} :serialization}]
+    {:keys [consumer-spec producer-spec mangle]} :serialization}]
   (let [canal-producer (chan)
         producer-schema (avro/parse-schema (if (string? producer-spec)
                                              (-> producer-spec io/file io/input-stream)
@@ -148,27 +152,28 @@
         ]
     (producer! send-topic partitions replication producer canal-producer)
     (fn [{:keys [parameters headers] :as req}]
-      (try
-        (log/trace "http-request: " req)
-        (let [uuid (str (UUID/randomUUID))
-              payload (-> parameters
-                          (assoc :http-response-id uuid)
-                          (assoc :headers headers)
-                          (assoc :uri (:uri req)))
-              ]
-          (>!! canal-producer (try
-                                (avro/binary-encoded producer-schema payload)
-                                (catch Exception e
-                                  (do (log/error e (str "Error encoding the payload with the given schema. send-topic: " send-topic))
-                                      (throw e)))))
-          {:status 200
-           :headers {"Content-Type" "application/json"}
-           :body (json/generate-string {:message "Sent"})})
-        (catch Exception e
-          (do (log/error e "Unexpected exception")
-              {:status 500
-               :headers {"Content-Type" "application/json"}
-               :body (json/generate-string {:message (.getMessage e)})}))))))
+      (binding [abracad.avro.util/*mangle-names* (or mangle true)]
+        (try
+          (log/trace "http-request: " req)
+          (let [uuid (str (UUID/randomUUID))
+                payload (-> parameters
+                            (assoc :http-response-id uuid)
+                            (assoc :headers headers)
+                            (assoc :uri (:uri req)))
+                ]
+            (>!! canal-producer (try
+                                  (avro/binary-encoded producer-schema payload)
+                                  (catch Exception e
+                                    (do (log/error e (str "Error encoding the payload with the given schema. send-topic: " send-topic))
+                                        (throw e)))))
+            {:status 200
+             :headers {"Content-Type" "application/json"}
+             :body (json/generate-string {:message "Sent"})})
+          (catch Exception e
+            (do (log/error e "Unexpected exception")
+                {:status 500
+                 :headers {"Content-Type" "application/json"}
+                 :body (json/generate-string {:message (.getMessage e)})})))))))
 
 (defn prepare-reitit-handlers
   []
@@ -188,10 +193,8 @@
                                                                   (throw (ex-info "timeout cannot be null" {})))
                                                       poll-duration (or (-> config :defaults :poll-duration)
                                                                         (throw (ex-info "poll-duration cannot be null" {})))
-                                                      partitions (or (-> config :defaults :partitions)
-                                                                     (throw (ex-info "partitions cannot be null" {})))
-                                                      replication (or (-> config :defaults :replication)
-                                                                      (throw (ex-info "replication" {})))
+                                                      partitions (-> config :defaults :partitions)
+                                                      replication (-> config :defaults :replication)
                                                       mode :request-response
                                                       consumer {}
                                                       producer {}}

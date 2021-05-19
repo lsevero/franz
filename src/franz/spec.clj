@@ -1,4 +1,4 @@
-(ns severo-http-connector.spec)
+(ns franz.spec)
 
 (def serialization-spec
   [:multi {:dispatch :type}
@@ -6,6 +6,7 @@
            [:type keyword?]]]
    [:avro [:map 
            [:type keyword?]
+           [:mangle {:optional true} boolean?]
            [:consumer-spec [:or string? map?]]
            [:producer-spec [:or string? map?]] 
            ]]
@@ -70,6 +71,7 @@
               [:path {:optional true} string?]
               ]]
    [:defaults [:map {:closed true}
+               [:create-topic? {:optional true} boolean?]
                [:send-topic {:optional true} string?]
                [:listen-topic {:optional true} string?]
                [:poll-duration {:optional true} pos-int?]

@@ -1,4 +1,4 @@
-(ns severo-http-connector.core
+(ns franz.core
   (:require
     [clojure.tools.logging :as log] 
     [reitit.ring :as ring]
@@ -20,7 +20,7 @@
     [ring.adapter.jetty :as jetty]
     [cheshire.core :as json]
     [mount.core :as mount]
-    [severo-http-connector
+    [franz
      [config :refer [config]]
      [handler :refer [prepare-reitit-handlers]]
      ])
@@ -34,7 +34,7 @@
               (http/router
                 [["/swagger.json"
                   {:get {:no-doc true
-                         :swagger {:info {:title (or (-> config :swagger :title) "SeveroHTTPConnector")
+                         :swagger {:info {:title (or (-> config :swagger :title) "Franz gateway")
                                           :description (or (-> config :swagger :description) "Connecting http to kafka")}}
                          :handler (swagger/create-swagger-handler)}}]
                  (prepare-reitit-handlers)

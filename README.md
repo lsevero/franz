@@ -1,15 +1,15 @@
-# severo-http-connector
+# Franz
 
-A easy HTTP<->Kafka connector with a complete config file and swagger generation.
+A easy HTTP<->Kafka gateway with a complete config file and swagger generation.
 
-![http kafka converter](https://raw.githubusercontent.com/lsevero/severo-http-connector/master/http-kafka.jpeg)
+![http kafka converter](https://raw.githubusercontent.com/lsevero/franz/master/http-kafka.jpeg)
 
 ## Usage
 
-Download the `severo-http-connector-<VERSION>-standalone.jar` from the releases tab and run the jar with the config files with the command:
+Download the `franz-<VERSION>-standalone.jar` from the releases tab and run the jar with the config files with the command:
 
 ```bash
-java -Dlog4j.configurationFile=<path-to>/log4j2.xml -Dconfig=<path-to>/config.edn -jar severo-http-connector-<VERSION>-standalone.jar
+java -Dlog4j.configurationFile=<path-to>/log4j2.xml -Dconfig=<path-to>/config.edn -jar franz-<VERSION>-standalone.jar
 ```
 Check the config files in the `example-config` folder.
 
@@ -155,7 +155,7 @@ Explained config.edn:
 ## Logging
 
 This project is using Log4j2 to log, and accepts a log4j2 compatible config file.
-Besides the logs inside SeveroHTTPConnector you can extract the logs inside the kafka and http library, although they are very verbose.
+Besides the logs inside Franz you can extract the logs inside the kafka and http library, although they are very verbose.
 Check the `example-config/log4j2.xml` file for a example.
 The logging config is optional, although is recommended to use.
 

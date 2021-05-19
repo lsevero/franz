@@ -1,6 +1,6 @@
-(defproject severo-http-connector "1.4.0"
+(defproject franz "1.4.0"
   :description "A http to kafka translator"
-  :url "https://github.com/lsevero/severo-http-connector"
+  :url "https://github.com/lsevero/franz"
   :license {:name "EPL-2.0 OR GPL-2.0-or-later WITH Classpath-exception-2.0"
             :url "https://www.eclipse.org/legal/epl-2.0/"}
   :dependencies [[org.clojure/clojure "1.10.3"]
@@ -26,14 +26,14 @@
                  [org.apache.logging.log4j/log4j-slf4j-impl "2.13.3"]
                  [com.damballa/abracad "0.4.13"]
                  ]
-  :main severo-http-connector.core
+  :main franz.core
   :profiles {:dev {:global-vars {*warn-on-reflection* true}
                    :plugins [[cider/cider-nrepl "0.25.4"]]
                    :resource-paths ["resources"
                                     "example-config"
                                     ]
                    :jvm-opts ["-Dconfig=example-config/config.edn"]
-                   :repl-options {:init-ns severo-http-connector.core} 
+                   :repl-options {:init-ns franz.core} 
                    }
              :uberjar {:aot :all
                        }
