@@ -1,4 +1,4 @@
-# Franz
+# Franz gateway
 
 A easy HTTP<->Kafka gateway with a complete config file and swagger generation.
 
