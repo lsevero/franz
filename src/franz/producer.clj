@@ -25,7 +25,7 @@
                 (let [ac (AdminClient/create cloud-config)]
                   (try
                     (log/info (str "Creating topic " topic))
-                    (.createTopics ac [(NewTopic. topic ^long partitions ^long replication)])
+                    (.createTopics ac [(NewTopic. ^String topic ^int (int partitions) ^short (short replication))])
                     ;; Ignore TopicExistsException, which would get thrown if the topic was previously created
                     (catch TopicExistsException e nil)
                     (finally

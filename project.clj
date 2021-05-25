@@ -1,4 +1,4 @@
-(defproject franz "1.4.2"
+(defproject franz "1.4.3"
   :description "A http to kafka gateway"
   :url "https://github.com/lsevero/franz"
   :license {:name "EPL-2.0 OR GPL-2.0-or-later WITH Classpath-exception-2.0"
@@ -14,7 +14,7 @@
                   :exclusions [[com.fasterxml.jackson.core/jackson-core]
                                [com.fasterxml.jackson.core/jackson-databind]
                                ]]
-                 [org.apache.kafka/kafka-clients "2.1.0"
+                 [org.apache.kafka/kafka-clients "2.6.1"
                   :exclusions [[com.fasterxml.jackson.core/jackson-core]
                                [com.fasterxml.jackson.core/jackson-databind]
                                ]]
