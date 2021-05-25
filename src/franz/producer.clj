@@ -18,18 +18,27 @@
   (doto (Properties.)
     (.putAll (merge (-> config :kafka :producer) (or cfg {})))))
 
+(comment (mount.core/start #'config)
+  (def ac (AdminClient/create (-> config :kafka :producer)))
+         (def a (.createTopics ac [(NewTopic. "testeeee" (int 1) (short 1))]))
+         (do (clojure.reflect/reflect a))
+         (clojure.reflect/reflect (.all a))
+         (.-exception (.all a))
+         (get (.values a) "testeeee"))
+
 (defn producer! [topic partitions replication producer-cfg canal-producer flush?]
   (letfn [(create-topic! [^String topic partitions replication ^Properties cloud-config]
             (when (-> config :defaults :create-topic? true?)
               (if (and (some? partitions) (some? replication))
                 (let [ac (AdminClient/create cloud-config)]
                   (try
-                    (log/info (str "Creating topic " topic))
+                    (log/info (str "Submitted topic " topic " for creation, will ignore if it already exists."))
                     (.createTopics ac [(NewTopic. ^String topic ^int (int partitions) ^short (short replication))])
-                    ;; Ignore TopicExistsException, which would get thrown if the topic was previously created
-                    (catch TopicExistsException e nil)
+                    (catch TopicExistsException e
+                      (log/info (str "Topic " topic " already exists, nothing to do.")))
+                    (catch Exception e
+                      (log/error e (log/error (str "Unknown error while creating topic " topic))))
                     (finally
-                      (log/info (str "Topic " topic " already exists, nothing to do."))
                       (.close ac))))
                 (log/warn (str "No partitions and replications was informed, cannot create topic " topic)))))
 
