@@ -18,14 +18,6 @@
   (doto (Properties.)
     (.putAll (merge (-> config :kafka :producer) (or cfg {})))))
 
-(comment (mount.core/start #'config)
-  (def ac (AdminClient/create (-> config :kafka :producer)))
-         (def a (.createTopics ac [(NewTopic. "testeeee" (int 1) (short 1))]))
-         (do (clojure.reflect/reflect a))
-         (clojure.reflect/reflect (.all a))
-         (.-exception (.all a))
-         (get (.values a) "testeeee"))
-
 (defn producer! [topic partitions replication producer-cfg canal-producer flush?]
   (letfn [(create-topic! [^String topic partitions replication ^Properties cloud-config]
             (when (-> config :defaults :create-topic? true?)
