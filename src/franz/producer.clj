@@ -18,7 +18,7 @@
   (doto (Properties.)
     (.putAll (merge (-> config :kafka :producer) (or cfg {})))))
 
-(defn producer! [topic partitions replication producer-cfg canal-producer]
+(defn producer! [topic partitions replication producer-cfg canal-producer flush?]
   (letfn [(create-topic! [^String topic partitions replication ^Properties cloud-config]
             (when (-> config :defaults :create-topic? true?)
               (if (and (some? partitions) (some? replication))
@@ -51,7 +51,9 @@
       (go-loop []
                (let [record (ProducerRecord. topic (<! canal-producer))]
                  (log/trace "canal-producer received: " record)
-                 (doto producer 
-                   (.send record callback)
-                   (.flush)))
+                 (if flush?
+                   (doto producer 
+                     (.send record callback)
+                     (.flush))
+                   (.send producer record callback)))
                (recur)))))

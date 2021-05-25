@@ -23,14 +23,14 @@
   (throw (ex-info "There is no implementation for this configuration." {:cfg cfg})))
 
 (defmethod create-generic-handler [:json :request-response]
-  [{:keys [send-topic listen-topic timeout poll-duration partitions replication consumer producer]}]
+  [{:keys [send-topic listen-topic timeout poll-duration partitions replication consumer producer flush?]}]
   (let [canal-producer (chan)
         cache (atom {})]
     (consumer! listen-topic consumer cache #(try (json/parse-string % true)
                                                  (catch Exception e
                                                    (do (log/error e (str "Error decoding payload " % ". listen-topic:" listen-topic))
                                                        (throw e)))) :duration poll-duration)
-    (producer! send-topic partitions replication producer canal-producer)
+    (producer! send-topic partitions replication producer canal-producer flush?)
     (fn [{:keys [parameters headers] :as req}]
       (try
         (log/trace "http-request: " req)
@@ -63,7 +63,7 @@
                :body (json/generate-string {:message (.getMessage e)})}))))))
 
 (defmethod create-generic-handler [:avro :request-response]
-  [{:keys [send-topic listen-topic timeout poll-duration partitions replication consumer producer]
+  [{:keys [send-topic listen-topic timeout poll-duration partitions replication consumer producer flush?]
     {:keys [consumer-spec producer-spec mangle]} :serialization}]
   (let [canal-producer (chan)
         cache (atom {})
@@ -79,7 +79,7 @@
                                                  (catch Exception e
                                                    (do (log/error e (str "Error decoding payload with the given schema. listen-topic: " listen-topic))
                                                        (throw e)))) :duration poll-duration)
-    (producer! send-topic partitions replication producer canal-producer)
+    (producer! send-topic partitions replication producer canal-producer flush?)
     (fn [{:keys [parameters headers] :as req}]
       (binding [abracad.avro.util/*mangle-names* (or mangle true)]
         (try
@@ -120,9 +120,9 @@
                  :body (json/generate-string {:message (.getMessage e)})})))))))
 
 (defmethod create-generic-handler [:json :fire-and-forget]
-  [{:keys [send-topic listen-topic timeout poll-duration partitions replication consumer producer]}]
+  [{:keys [send-topic listen-topic timeout poll-duration partitions replication consumer producer flush?]}]
   (let [canal-producer (chan)]
-    (producer! send-topic partitions replication producer canal-producer)
+    (producer! send-topic partitions replication producer canal-producer flush?)
     (fn [{:keys [parameters headers] :as req}]
       (try
         (log/trace "http-request: " req)
@@ -143,14 +143,14 @@
                :body (json/generate-string {:message (.getMessage e)})}))))))
 
 (defmethod create-generic-handler [:avro :fire-and-forget]
-  [{:keys [send-topic listen-topic timeout poll-duration partitions replication consumer producer]
+  [{:keys [send-topic listen-topic timeout poll-duration partitions replication consumer producer flush?]
     {:keys [consumer-spec producer-spec mangle]} :serialization}]
   (let [canal-producer (chan)
         producer-schema (avro/parse-schema (if (string? producer-spec)
                                              (-> producer-spec io/file io/input-stream)
                                              producer-spec))
         ]
-    (producer! send-topic partitions replication producer canal-producer)
+    (producer! send-topic partitions replication producer canal-producer flush?)
     (fn [{:keys [parameters headers] :as req}]
       (binding [abracad.avro.util/*mangle-names* (or mangle true)]
         (try
@@ -183,7 +183,7 @@
                 [route (into {}
                              (mapv (fn [[method {:keys [send-topic listen-topic timeout poll-duration
                                                         partitions replication consumer producer
-                                                        serialization parameters mode]
+                                                        serialization parameters mode flush?]
                                                  :or {serialization {:type :json}
                                                       send-topic (or (-> config :defaults :send-topic)
                                                                      (throw (ex-info "send-topic cannot be null" {})))
@@ -196,6 +196,7 @@
                                                       partitions (-> config :defaults :partitions)
                                                       replication (-> config :defaults :replication)
                                                       mode :request-response
+                                                      flush? (or (-> config :defaults :flush?) true)
                                                       consumer {}
                                                       producer {}}
                                                  :as conf}]]
@@ -210,6 +211,7 @@
                                                                                                  :replication replication
                                                                                                  :consumer consumer
                                                                                                  :producer producer
+                                                                                                 :flush? flush?
                                                                                                  :mode mode
                                                                                                  })))
                                            conf-final (if parameters

@@ -65,6 +65,7 @@
                          :timeout 2000
                          :poll-duration 100
                          :parameters {:query [:map [:number [:and int? [:> 6]]]]}
+                         :flush? false; flush messages after being sent by the producer, defaults to true
                          :summary "testing get"
                          }}
           "/fire-and-forget/" {:post {:send-topic "poc3"
