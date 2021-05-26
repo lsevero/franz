@@ -24,13 +24,13 @@
 
 (defmethod create-generic-handler [:json :request-response]
   [{:keys [send-topic listen-topic timeout poll-duration partitions replication consumer producer flush?]}]
-  (let [canal-producer (chan)
+  (let [chan-producer (chan)
         cache (atom {})]
     (consumer! listen-topic consumer cache #(try (json/parse-string % true)
                                                  (catch Exception e
                                                    (do (log/error e (str "Error decoding payload " % ". listen-topic:" listen-topic))
                                                        (throw e)))) :duration poll-duration)
-    (producer! send-topic partitions replication producer canal-producer flush?)
+    (producer! send-topic partitions replication producer chan-producer flush?)
     (fn [{:keys [parameters headers] :as req}]
       (try
         (log/trace "http-request: " req)
@@ -39,11 +39,11 @@
                           (assoc :http-response-id uuid)
                           (assoc :headers headers)
                           (assoc :uri (:uri req)))
-              canal-resposta (chan)]
-          (swap! cache assoc uuid canal-resposta)
+              chan-response (chan)]
+          (swap! cache assoc uuid chan-response)
           (log/trace "cache: " @cache)
-          (>!! canal-producer (json/generate-string payload))
-          (let [[value channel] (alts!! [canal-resposta (a/timeout timeout)])
+          (>!! chan-producer (json/generate-string payload))
+          (let [[value channel] (alts!! [chan-response (a/timeout timeout)])
                 _ (swap! cache dissoc uuid)]
             (if value 
               (let [http-status (or (:http-status value)
@@ -65,7 +65,7 @@
 (defmethod create-generic-handler [:avro :request-response]
   [{:keys [send-topic listen-topic timeout poll-duration partitions replication consumer producer flush?]
     {:keys [consumer-spec producer-spec mangle]} :serialization}]
-  (let [canal-producer (chan)
+  (let [chan-producer (chan)
         cache (atom {})
         consumer-schema (avro/parse-schema (if (string? consumer-spec)
                                              (-> consumer-spec io/file io/input-stream)
@@ -79,7 +79,7 @@
                                                  (catch Exception e
                                                    (do (log/error e (str "Error decoding payload with the given schema. listen-topic: " listen-topic))
                                                        (throw e)))) :duration poll-duration)
-    (producer! send-topic partitions replication producer canal-producer flush?)
+    (producer! send-topic partitions replication producer chan-producer flush?)
     (fn [{:keys [parameters headers] :as req}]
       (binding [abracad.avro.util/*mangle-names* (or mangle true)]
         (try
@@ -92,15 +92,15 @@
                                      ) uuid)
                             (assoc :headers headers)
                             (assoc :uri (:uri req)))
-                canal-resposta (chan)]
-            (swap! cache assoc uuid canal-resposta)
+                chan-response (chan)]
+            (swap! cache assoc uuid chan-response)
             (log/trace "cache: " @cache)
-            (>!! canal-producer (try
+            (>!! chan-producer (try
                                   (avro/binary-encoded producer-schema payload)
                                   (catch Exception e
                                     (do (log/error e (str "Error encoding the payload with the given schema. send-topic: " send-topic))
                                         (throw e)))))
-            (let [[value channel] (alts!! [canal-resposta (a/timeout timeout)])
+            (let [[value channel] (alts!! [chan-response (a/timeout timeout)])
                   _ (swap! cache dissoc uuid)]
               (if value 
                 (let [http-status (or (:http-status value)
@@ -121,8 +121,8 @@
 
 (defmethod create-generic-handler [:json :fire-and-forget]
   [{:keys [send-topic listen-topic timeout poll-duration partitions replication consumer producer flush?]}]
-  (let [canal-producer (chan)]
-    (producer! send-topic partitions replication producer canal-producer flush?)
+  (let [chan-producer (chan)]
+    (producer! send-topic partitions replication producer chan-producer flush?)
     (fn [{:keys [parameters headers] :as req}]
       (try
         (log/trace "http-request: " req)
@@ -131,8 +131,8 @@
                           (assoc :http-response-id uuid)
                           (assoc :headers headers)
                           (assoc :uri (:uri req)))
-              canal-resposta (chan)]
-          (>!! canal-producer (json/generate-string payload))
+              chan-response (chan)]
+          (>!! chan-producer (json/generate-string payload))
           {:status 200
            :headers {"Content-Type" "application/json"}
            :body (json/generate-string {:message "Sent"})})
@@ -145,12 +145,12 @@
 (defmethod create-generic-handler [:avro :fire-and-forget]
   [{:keys [send-topic listen-topic timeout poll-duration partitions replication consumer producer flush?]
     {:keys [consumer-spec producer-spec mangle]} :serialization}]
-  (let [canal-producer (chan)
+  (let [chan-producer (chan)
         producer-schema (avro/parse-schema (if (string? producer-spec)
                                              (-> producer-spec io/file io/input-stream)
                                              producer-spec))
         ]
-    (producer! send-topic partitions replication producer canal-producer flush?)
+    (producer! send-topic partitions replication producer chan-producer flush?)
     (fn [{:keys [parameters headers] :as req}]
       (binding [abracad.avro.util/*mangle-names* (or mangle true)]
         (try
@@ -161,7 +161,7 @@
                             (assoc :headers headers)
                             (assoc :uri (:uri req)))
                 ]
-            (>!! canal-producer (try
+            (>!! chan-producer (try
                                   (avro/binary-encoded producer-schema payload)
                                   (catch Exception e
                                     (do (log/error e (str "Error encoding the payload with the given schema. send-topic: " send-topic))

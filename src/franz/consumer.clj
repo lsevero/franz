@@ -29,9 +29,9 @@
                         :as value-record} (parse-fn (.value record))
                        http-response-id (or lisp-case snake-case)
                        key-record (.key record)
-                       canal-resposta (get @cache http-response-id)
+                       chan-response (get @cache http-response-id)
                        ]
-                   (>! canal-resposta value-record)
+                   (>! chan-response value-record)
                    (log/debug (format "Consumed record with key %s and value %s\n" key-record value-record)))
                  (catch Exception e nil)))
              (recur (seq (.poll consumer (Duration/ofMillis duration)))))))
