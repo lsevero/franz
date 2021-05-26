@@ -35,3 +35,17 @@
 (mount/defstate config
   :start (get-config!)
   :stop nil)
+
+(defn autoscale-async-pool
+  []
+  (let [n-routes (-> config :routes count)
+        pool-size (Long/getLong "clojure.core.async.pool-size")]
+    (if (some? pool-size)
+      (log/info "clojure.core.async.pool-size parameter found, will use it")
+      (if (> n-routes 8)
+        (do (log/info (str "The number of routes is greater than the default threadpool size, autoscaling it to " n-routes))
+            (System/setProperty "clojure.core.async.pool-size" (str n-routes)))
+        (log/info "The number of routes is less than the default threadpool size, no need to autoscale.")))))
+
+(mount/defstate autoscale-threadpool
+  :start (autoscale-async-pool))
