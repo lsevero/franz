@@ -40,9 +40,16 @@ Explained config.edn:
                     "value.serializer" "org.apache.kafka.common.serialization.StringSerializer"
                     }}
  ;Here we control some option of the http server
- :http {:min-threads 16
+ ;in this config file we will evaluate all lists (note the parethesis syntax) as code
+ ;
+ ;
+ ; !!!!!!!!! WARNING !!!!!!!!!!!
+ ;
+ ;
+ ;Never read a config file in franz from an untrusted sources!!!!!
+ :http {:min-threads (+ 8 8)
         :max-threads 100
-        :max-idle-time 1800000 
+        :max-idle-time (* 30 60 1000)
         :request-header-size 8192
         ;We are using the juxt/aero config library to read the config files
         ;we can pass environment variables inside the config file, if no venv has passed will default to the second argument of the #or clause
@@ -83,7 +90,9 @@ Explained config.edn:
                                         [:map
                                          [:x [:and int? [:> 6]]]
                                          [:y number?]]
-                                        [:fn (fn [{:keys [x y]}] (> x y))]]
+                                        ;When using functions to validate always provide a :error/message as well
+                                        ;or else the spec will fail with a "unknown error" message.
+                                        [:fn {:error/message "x should be greater than y"} (fn [{:keys [x y]}] (> x y))]]
                                        :query [:map
                                                [:id string?]]}
                           }
@@ -95,8 +104,8 @@ Explained config.edn:
                          :flush? false; flush messages after being sent by the producer, defaults to true
                          :summary "testing get"
                          }}
-          "/fire-and-forget/" {:post {:send-topic "poc3"
-                                      :listen-topic "poc3"
+          "/fire-and-forget/" {:post {:send-topic "maaaaaaaaaaaano"
+                                      :listen-topic "maaaaaaaaaaaano"
                                       :timeout 2000
                                       :poll-duration 100;milliseconds
                                       :serialization {:type :json}
@@ -108,7 +117,7 @@ Explained config.edn:
           "/avro" {:post {:send-topic "avro"
                           ;We can define kafka configs per route as well
                           ;these maps will be merged against the kafka configs above, per-route configs prevail
-                          :consumer {"group.id" "avro"
+                          :consumer {"group.id" (str "prefix-" (java.util.UUID/randomUUID))
                                      "auto.offset.reset" "latest"
                                      "key.deserializer" "org.apache.kafka.common.serialization.ByteArrayDeserializer"
                                      "value.deserializer" "org.apache.kafka.common.serialization.ByteArrayDeserializer"
@@ -156,8 +165,7 @@ Explained config.edn:
                                           :consumer-spec "./example-config/avro.json"
                                           }
                           }}
-          }
- }
+          }}
 
 ```
 
@@ -167,6 +175,14 @@ This project is using Log4j2 to log, and accepts a log4j2 compatible config file
 Besides the logs inside Franz you can extract the logs inside the kafka and http library, although they are very verbose.
 Check the `example-config/log4j2.xml` file for a example.
 The logging config is optional, although is recommended to use.
+
+## Warnings about safety
+
+It is now possible to inject code as data on the config file to improve the config file flexibility and power.
+That being said, **you should never read config files from untrusted sources!!!**
+If you are too uncorfortable with code evaluation in the config file, you can disable it setting `:code-eval` to false inside `:defaults` section.
+
+With great power comes great responsibility.
 
 ## Building
 

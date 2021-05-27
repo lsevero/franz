@@ -81,6 +81,7 @@
                [:partitions {:optional true} pos-int?]
                [:replication {:optional true} pos-int?]
                [:flush? {:optional true} boolean?]
+               [:code-eval {:optional true} boolean?]
                ]]
    [:routes 
     [:and [:map-of :string [:and

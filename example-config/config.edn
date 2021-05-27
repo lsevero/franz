@@ -13,9 +13,16 @@
                     "value.serializer" "org.apache.kafka.common.serialization.StringSerializer"
                     }}
  ;Here we control some option of the http server
- :http {:min-threads 16
+ ;in this config file we will evaluate all lists (note the parethesis syntax) as code
+ ;
+ ;
+ ; !!!!!!!!! WARNING !!!!!!!!!!!
+ ;
+ ;
+ ;Never read a config file in franz from an untrusted sources!!!!!
+ :http {:min-threads (+ 8 8)
         :max-threads 100
-        :max-idle-time 1800000 
+        :max-idle-time (* 30 60 1000)
         :request-header-size 8192
         ;We are using the juxt/aero config library to read the config files
         ;we can pass environment variables inside the config file, if no venv has passed will default to the second argument of the #or clause
@@ -56,7 +63,9 @@
                                         [:map
                                          [:x [:and int? [:> 6]]]
                                          [:y number?]]
-                                        [:fn (fn [{:keys [x y]}] (> x y))]]
+                                        ;When using functions to validate always provide a :error/message as well
+                                        ;or else the spec will fail with a "unknown error" message.
+                                        [:fn {:error/message "x should be greater than y"} (fn [{:keys [x y]}] (> x y))]]
                                        :query [:map
                                                [:id string?]]}
                           }
@@ -81,7 +90,7 @@
           "/avro" {:post {:send-topic "avro"
                           ;We can define kafka configs per route as well
                           ;these maps will be merged against the kafka configs above, per-route configs prevail
-                          :consumer {"group.id" "avro"
+                          :consumer {"group.id" (str "prefix-" (java.util.UUID/randomUUID))
                                      "auto.offset.reset" "latest"
                                      "key.deserializer" "org.apache.kafka.common.serialization.ByteArrayDeserializer"
                                      "value.deserializer" "org.apache.kafka.common.serialization.ByteArrayDeserializer"
@@ -129,5 +138,4 @@
                                           :consumer-spec "./example-config/avro.json"
                                           }
                           }}
-          }
- }
+          }}
