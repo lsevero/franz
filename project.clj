@@ -32,7 +32,8 @@
                    :resource-paths ["resources"
                                     "example-config"
                                     ]
-                   :jvm-opts ["-Dconfig=example-config/config.edn"]
+                   :jvm-opts ["-Dconfig=example-config/config.edn"
+                              ]
                    :repl-options {:init-ns franz.core} 
                    }
              :uberjar {:aot :all

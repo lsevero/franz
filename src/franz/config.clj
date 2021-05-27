@@ -27,7 +27,12 @@
                              me/humanize))
               (log/error (apply str (repeat 120 "=")))
               (System/exit 1))
-            config))
+            (do
+              (when (and (> (-> config :routes count) 8)
+                         (nil? (Long/getLong "clojure.core.async.pool-size")))
+                (log/error "The number of routes exceeds the number of threads in the kafka thread pool, some routes will become unresponsive.")
+                (log/error (str "Add this property to java and restart franz: -Dclojure.core.async.pool-size=" (-> config :routes count inc))))
+              config)))
         (catch Exception e
           (do (log/error e "Error validating the config file")
               (System/exit 1)))))))
@@ -35,17 +40,3 @@
 (mount/defstate config
   :start (get-config!)
   :stop nil)
-
-(defn autoscale-async-pool
-  []
-  (let [n-routes (-> config :routes count)
-        pool-size (Long/getLong "clojure.core.async.pool-size")]
-    (if (some? pool-size)
-      (log/info "clojure.core.async.pool-size parameter found, will use it")
-      (if (> n-routes 8)
-        (do (log/info (str "The number of routes is greater than the default threadpool size, autoscaling it to " n-routes))
-            (System/setProperty "clojure.core.async.pool-size" (str n-routes)))
-        (log/info "The number of routes is less than the default threadpool size, no need to autoscale.")))))
-
-(mount/defstate autoscale-threadpool
-  :start (autoscale-async-pool))

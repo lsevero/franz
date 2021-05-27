@@ -21,7 +21,7 @@
     [cheshire.core :as json]
     [mount.core :as mount]
     [franz
-     [config :refer [config autoscale-threadpool]]
+     [config :refer [config]]
      [handler :refer [prepare-reitit-handlers]]
      ])
   (:import
@@ -175,5 +175,4 @@
 
 (defn -main [& args]
   (mount/start #'config
-               #'autoscale-threadpool
                #'webserver)) 
