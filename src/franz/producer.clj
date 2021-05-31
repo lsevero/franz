@@ -45,9 +45,10 @@
     (let [producer (KafkaProducer. ^Properties (properties-producer producer-cfg))
           callback (reify Callback
                      (onCompletion [this metadata exception]
-                       (if exception
-                         (print-ex exception)
-                         (print-metadata metadata))))]
+                       (future
+                         (if exception
+                           (print-ex exception)
+                           (print-metadata metadata)))))]
       (create-topic! topic partitions replication (properties-producer producer-cfg))
       (go-loop []
                (let [record (ProducerRecord. topic (<! chan-producer))]
