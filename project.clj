@@ -1,4 +1,4 @@
-(defproject franz "1.5.2"
+(defproject franz "1.5.3"
   :description "A http to kafka gateway"
   :url "https://github.com/lsevero/franz"
   :license {:name "EPL-2.0 OR GPL-2.0-or-later WITH Classpath-exception-2.0"
@@ -21,9 +21,9 @@
                  [borkdude/sci "0.2.5"]
                  [org.clojure/core.async "1.3.618"]
                  [org.clojure/tools.logging "1.1.0"]
-                 [org.apache.logging.log4j/log4j-api "2.15.0"]
-                 [org.apache.logging.log4j/log4j-core "2.15.0"]
-                 [org.apache.logging.log4j/log4j-slf4j-impl "2.15.0"]
+                 [org.apache.logging.log4j/log4j-api "2.16.0"]
+                 [org.apache.logging.log4j/log4j-core "2.16.0"]
+                 [org.apache.logging.log4j/log4j-slf4j-impl "2.16.0"]
                  [com.damballa/abracad "0.4.13"]
                  ]
   :main franz.core
