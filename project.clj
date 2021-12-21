@@ -21,9 +21,9 @@
                  [borkdude/sci "0.2.5"]
                  [org.clojure/core.async "1.3.618"]
                  [org.clojure/tools.logging "1.1.0"]
-                 [org.apache.logging.log4j/log4j-api "2.16.0"]
-                 [org.apache.logging.log4j/log4j-core "2.16.0"]
-                 [org.apache.logging.log4j/log4j-slf4j-impl "2.16.0"]
+                 [org.apache.logging.log4j/log4j-api "2.17.0"]
+                 [org.apache.logging.log4j/log4j-core "2.17.0"]
+                 [org.apache.logging.log4j/log4j-slf4j-impl "2.17.0"]
                  [com.damballa/abracad "0.4.13"]
                  ]
   :main franz.core
